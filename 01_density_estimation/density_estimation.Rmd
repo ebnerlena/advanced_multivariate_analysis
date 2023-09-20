@@ -459,13 +459,13 @@ r <- 100
 
 op<-par(mfrow=c(1,3))
 vpk.1 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha, 
-         S=S, n=n, r=r, h="nrd0", adjust=.4,ylim=c(0,0.55))  
+         S=S, n=n, r=r, h="nrd0", adjust=.4,ylim=c(0,0.55))  # small bandwidth small bias large variance
 
-vpk.2 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha, 
-         S=S, n=n, r=r, h="nrd0", adjust=.75,ylim=c(0,0.55))  
+vpk.2 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha,  
+         S=S, n=n, r=r, h="nrd0", adjust=.75,ylim=c(0,0.55))  # medium bandwidth, MSE is the lowest so this has the best measure of error
 
 vpk.3 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha, 
-         S=S, n=n, r=r, h="nrd0", adjust=1.5,ylim=c(0,0.55))  
+         S=S, n=n, r=r, h="nrd0", adjust=1.5,ylim=c(0,0.55))  # large bandwidthy, small variance, high bias
 par(op)
 ```
 
