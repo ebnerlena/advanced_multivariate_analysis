@@ -1,0 +1,236 @@
+---
+title: "Clustering"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 1. Different clustering methods
+
+### Iris data
+```{r}
+library(datasets)
+head(iris)
+summary(iris)
+```
+
+```{r}
+plot(iris[,-5],col=iris$Species,pch=19)
+```
+
+### We compute two distance matrices
+
+Euclidean distance:
+```{r}
+d.Eucl <- dist(iris[,-5])
+summary(d.Eucl)
+```
+
+Distance defined from a Gaussian radial basis function (RBF) Kernel:
+\[
+ k(x,x') = \exp(-\sigma \|x - x'\|^2) 
+\]
+```{r}
+library(kernlab)
+rbfkernel.1 <- rbfdot(sigma = 1)
+kM.rbf.1 <- kernelMatrix(rbfkernel.1,as.matrix(iris[,-5]))
+dim(kM.rbf.1)
+
+d.rbf.1 <- as.dist(sqrt(2*(1- pmin(kM.rbf.1,1))))
+length(d.rbf.1)
+```
+
+Comparing both distances:
+```{r}
+plot(d.Eucl, d.rbf.1)
+```
+
+### Hierarchical clustering, "single" linkage
+```{r}
+hcl.Eucl <- hclust(d.Eucl, method="single")
+plot(hcl.Eucl, labels=iris$Species)
+table(cutree(hcl.Eucl,2),iris$Species)
+```
+
+```{r}
+hcl.rbf.1 <- hclust(d.rbf.1, method="single")
+plot(hcl.rbf.1, labels=iris$Species)
+table(cutree(hcl.rbf.1,2),iris$Species)
+```
+
+### Hierarchical clustering, Ward's method linkage
+
+```{r}
+hcl.Eucl <- hclust(d.Eucl, method="ward.D")
+plot(hcl.Eucl, labels=iris$Species)
+table(cutree(hcl.Eucl,3),iris$Species)
+```
+```{r}
+hcl.rbf.1 <- hclust(d.rbf.1, method="ward.D")
+plot(hcl.rbf.1, labels=iris$Species)
+table(cutree(hcl.rbf.1,3),iris$Species)
+```
+
+### K-means clustering
+
+```{r}
+km.3 <- kmeans(iris[,-5],3)
+table(km.3$cluster,iris$Species)
+```
+
+### K-medoids clustering
+
+```{r}
+library(cluster)
+kmed.3.Eucl <- pam(d.Eucl,3,diss=TRUE)
+table(kmed.3.Eucl$cluster,iris$Species)
+```
+```{r}
+table(km.3$cluster,kmed.3.Eucl$cluster)
+```
+
+
+```{r}
+kmed.3.rbf.1 <- pam(d.rbf.1,3,diss=TRUE)
+table(kmed.3.rbf.1$cluster,iris$Species)
+```
+
+```{r}
+table(km.3$cluster,kmed.3.rbf.1$cluster)
+```
+
+## 2. Quality of clustering 
+
+### Gap statistic 
+
+The Gap estimate of the optimal number of clusters, $K^*$, is the smallest $K$ producing a gap within one standard deviation of the gap at $K + 1$.
+That is,
+\[
+K^*=\arg\min_{K}\{K: G(K)\ge G(K+1)-\mbox{sd}_{K+1}\}.
+\]
+```{r}
+# Create a function doing hclust + cutree
+hclusCut <- function(x, k, d.meth = "euclidean", ...){
+   list(cluster = cutree(hclust(dist(x, method=d.meth), ...), k=k))
+}
+
+Gap <- clusGap(iris[,-5], FUNcluster=hclusCut, K.max=6, B = 500, method="ward.D")
+plot(1:6,Gap$Tab[,"gap"],type="b")
+points(1:6,Gap$Tab[,"gap"]+ Gap$Tab[,"SE.sim"],pch="+", col=2)
+points(1:6,Gap$Tab[,"gap"]- Gap$Tab[,"SE.sim"],pch="+",col=2)
+abline(h=Gap$Tab[,"gap"],col=4,lty="16")
+```
+
+In this case $K^*=4$. 
+
+```{r}
+cut.4.hcl.Eucl <- cutree(hcl.Eucl,4)
+table(cut.4.hcl.Eucl, iris$Species)
+```
+
+### Silhouette
+
+```{r}
+hcl.Eucl <- hclust(d.Eucl, method="ward.D")
+cut.2.hcl.Eucl <- cutree(hcl.Eucl,2)
+si.2.Eucl <- silhouette(cut.2.hcl.Eucl, d.Eucl)
+plot(si.2.Eucl,col=2:3)
+```
+
+```{r}
+hcl.Eucl <- hclust(d.Eucl, method="ward.D")
+cut.3.hcl.Eucl <- cutree(hcl.Eucl,3)
+si.3.Eucl <- silhouette(cut.3.hcl.Eucl, d.Eucl)
+plot(si.3.Eucl,col=2:4)
+```
+
+```{r}
+hcl.Eucl <- hclust(d.Eucl, method="ward.D")
+cut.4.hcl.Eucl <- cutree(hcl.Eucl,4)
+si.4.Eucl <- silhouette(cut.4.hcl.Eucl, d.Eucl)
+plot(si.4.Eucl,col=2:5)
+```
+
+```{r}
+hcl.Eucl <- hclust(d.Eucl, method="ward.D")
+cut.5.hcl.Eucl <- cutree(hcl.Eucl,5)
+si.5.Eucl <- silhouette(cut.5.hcl.Eucl, d.Eucl)
+plot(si.5.Eucl,col=2:6)
+```
+
+### Optimal number of clusters, library `clusterR`
+
+Optimal number of Clusters for the Gaussian mixture models
+
+```{r}
+library(ClusterR)
+opt.GMM <- Optimal_Clusters_GMM(
+  data=iris[,-5], 
+  max_clusters=6,
+  criterion = "AIC",
+  dist_mode = "eucl_dist",
+  plot_data = FALSE
+)
+opt.GMM <- as.numeric(opt.GMM)
+plot(opt.GMM,xlab="clusters",ylab="AIC",type="b",lty=3)
+```
+
+
+
+Estimation of the Gaussian Mixture Model (GMM) for $K=4$ components:
+```{r}
+GMM.4 <- GMM(
+  data=iris[,-5], 
+  gaussian_comps = 4,
+  dist_mode = "eucl_dist"
+)
+GMM.4$weights
+GMM.4$centroids
+GMM.4$covariance_matrices
+
+pairs(rbind(as.matrix(iris[,1:4]),GMM.4$centroids), 
+     col=c(iris$Species,rep('blue',4)),
+     pch=c(rep(1,150),rep(19,4)),
+     cex=c(rep(1,150),rep(2,4)))
+```
+
+```{r}
+GMM.4.class <- apply(GMM.4$Log_likelihood,1,which.max)
+table(GMM.4.class, iris$Species)
+```
+
+
+The function `cluster.stats` in package `fpc` computes a number of statistics, which can be used for cluster validation, comparison between clusterings and decision about the number of clusters.
+```{r}
+library(fpc)
+n.cl <- 2:10
+l.n.cl<-length(n.cl)
+
+avg.sil <- numeric(l.n.cl)
+w <- numeric(l.n.cl)
+wb.rat <- numeric(l.n.cl)
+sep.ind <- numeric(l.n.cl)
+CalHar <- numeric(l.n.cl)
+ 
+for (i in (1:l.n.cl)){
+  k<-n.cl[i]
+  hcl.Eucl <- hclust(d.Eucl, method="ward.D")
+  cut.hcl.Eucl <- cutree(hcl.Eucl,k)
+  cl.stats <- cluster.stats(d.Eucl,cut.hcl.Eucl)
+  avg.sil[i]   <- cl.stats$avg.silwidth
+  w[i]    <- cl.stats$average.within
+  wb.rat[i]    <- cl.stats$wb.ratio
+  sep.ind[i]   <- cl.stats$sindex
+  CalHar[i]   <- cl.stats$ch
+}
+op<-par(mfrow=c(2,2))
+plot(n.cl,avg.sil)
+#plot(n.cl,wb.rat)
+plot(n.cl,w)
+plot(n.cl,CalHar)
+plot(n.cl,sep.ind)
+par(op)
+```

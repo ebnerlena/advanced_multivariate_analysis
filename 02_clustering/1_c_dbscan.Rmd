@@ -1,0 +1,224 @@
+---
+title: "Density based clustering: DBSCAN"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r global_values}
+save_pdf<-FALSE # TRUE
+width_pdf <- 6
+height_pdf <- 6
+```
+
+## 1. DBSCAN concepts
+
+### A simulated data example
+We simulate 2-dimensional data clustered in 2 groups with additional outliers.
+
+```{r}
+set.seed(1234)
+
+n1 <- 50
+n2 <- 20
+nout <- 10
+
+# Cluster 1: 
+theta <- seq(-pi/4,3*pi/4,length=n1)
+s.eps <- .1
+eps <- matrix(s.eps*rnorm(2*n1),ncol=2)
+X1 <- cbind(cos(theta),sin(theta))+eps
+
+# Cluster 2:
+s2 <- .2
+X2 <- matrix(s2*rnorm(2*n2),ncol=2)
+
+# Outliers:
+theta.out <- runif(nout,0,2*pi)
+s.eps.out <- .2
+eps.out <- matrix(s.eps*rnorm(2*nout),ncol=2)
+R.out <- 1.5
+Xout <- R.out*cbind(cos(theta.out),sin(theta.out))+eps.out
+
+# Final data set:
+X <- rbind(X1,X2,Xout)
+cl.true <- c(rep(1,n1), rep(2,n2), rep(0,nout))
+n<-n1+n2+nout
+```
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("data.pdf",width = width_pdf, height = height_pdf)
+plot(X, asp=1,xlab="x",ylab="y",xlim=c(-2,2),ylim=c(-2,2))
+if (save_pdf) dev.off()
+```
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("data_cl.pdf",width = width_pdf, height = height_pdf)
+plot(X, col=1+cl.true,asp=1,xlab="x",ylab="y",xlim=c(-2,2),ylim=c(-2,2))
+if (save_pdf) dev.off()
+```
+
+
+### $\varepsilon$-neigborhoods:
+
+```{r}
+epsilon <- .25
+minPts <- floor(n/20)
+```
+
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("eps_neig.pdf",width = width_pdf, height = height_pdf)
+symbols(x=X[,1],y=X[,2],circles=rep(epsilon,n), inches=FALSE, fg=1, bg=8, 
+        asp=1,xlim=c(-2,2),ylim=c(-2,2),
+        main=paste("epsilon=",epsilon),xlab="x",ylab="y")
+symbols(x=X[,1],y=X[,2],circles=rep(epsilon,n), inches=FALSE, fg=1, bg=NA,
+        add=TRUE)
+points(X,pch=19)
+if (save_pdf) dev.off()
+```
+
+### Core points: 
+
+```{r,fig.asp=1,fig.width=6} 
+if (save_pdf) pdf("core.pdf",width = width_pdf, height = height_pdf)
+D <- as.matrix(dist(X))
+core.pts <- which( apply(D<=epsilon, 1, sum)>=minPts)
+no.core.pts <- (1:n)[-core.pts]
+n.core <- length(core.pts)
+n.no.core <- n-n.core
+
+symbols(x=X[core.pts,1],y=X[core.pts,2],circles=rep(epsilon,n.core), inches=FALSE, fg=2, bg="pink",
+        asp=1,xlim=c(-2,2),ylim=c(-2,2),
+        main=paste("epsilon=",epsilon,", minPts=",minPts),xlab="x",ylab="y")
+symbols(x=X[core.pts,1],y=X[core.pts,2],circles=rep(epsilon,n.core), inches=FALSE, fg=2, bg=NA,
+        add=TRUE)
+symbols(x=X[no.core.pts,1],y=X[no.core.pts,2],circles=rep(epsilon,n.no.core), inches=FALSE, 
+        fg=1, bg=NA,
+        asp=1,xlim=c(-2,2),ylim=c(-2,2),add=TRUE)
+points(X[core.pts,],pch=19,col=2)
+points(X[no.core.pts,],pch=19,col=1)
+legend("topright",c("Core points","No core points"),pch=19,col=c(2,1))
+if (save_pdf) dev.off()
+```
+
+### Border points and outliers: 
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("border_outliers.pdf",width = width_pdf, height = height_pdf)
+D.nc.c <- D[no.core.pts,core.pts]
+border.pts <- no.core.pts[which(apply(D.nc.c,1,min)<=epsilon)]
+outliers <- setdiff(no.core.pts,border.pts)
+n.border<- length(border.pts)
+n.outliers <- n.no.core - n.border
+
+symbols(x=X[core.pts,1],y=X[core.pts,2],circles=rep(epsilon,n.core), inches=FALSE, fg=2, bg="pink",
+        asp=1,xlim=c(-2,2),ylim=c(-2,2),
+        main=paste("epsilon=",epsilon,", minPts=",minPts),xlab="x",ylab="y")
+symbols(x=X[core.pts,1],y=X[core.pts,2],circles=rep(epsilon,n.core), inches=FALSE, fg=2, bg=NA,
+        add=TRUE)
+symbols(x=X[border.pts,1],y=X[border.pts,2],circles=rep(epsilon,n.border), inches=FALSE, 
+        fg=4, bg=NA,add=TRUE)
+symbols(x=X[outliers,1],y=X[outliers,2],circles=rep(epsilon,n.outliers), inches=FALSE, 
+        fg=1, bg=NA,ylim=c(-2,2),add=TRUE)
+points(X[core.pts,],pch=19,col=2)
+points(X[border.pts,],pch=19,col=4)
+points(X[outliers,],pch=19,col=1)
+legend("topright",c("Core points","Border points","Outliers"),pch=19,col=c(2,4,1))
+if (save_pdf) dev.off()
+```
+
+## 2. DBSCAN algorthim
+
+```{r}
+remain.pts <- setdiff(1:n,outliers)
+clusters <- list()
+cl.found <- numeric(n)
+j <- 0
+while (length(remain.pts)>0) {
+  j <- j+1
+  cluster.j <- sample(intersect(remain.pts,core.pts),1)
+  remain.pts <- setdiff(remain.pts,cluster.j)
+  D.aux <- D[remain.pts,cluster.j]
+  eps.reachable <- remain.pts[D.aux<=epsilon]
+  while (length(eps.reachable)>0){
+    cluster.j <- union(cluster.j,eps.reachable)
+    remain.pts <- setdiff(remain.pts,cluster.j)
+    if (length(remain.pts)>0){
+      D.aux <- matrix(D[remain.pts,cluster.j],ncol=length(cluster.j))
+      eps.reachable <- remain.pts[which(apply(D.aux,1,min)<=epsilon)]
+    }else{
+      eps.reachable <- numeric(0)
+    }
+  }
+  clusters[[j]]<-sort(cluster.j)
+  cl.found[clusters[[j]]] <- j
+}
+
+table(cl.true, cl.found)
+``` 
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("my_dbscan.pdf",width = width_pdf, height = height_pdf)
+fg.col <- c("red","darkgreen","blue")
+bg.col <- c("pink","green","lightblue")
+plot(X[outliers,],pch=19,col=1,
+     asp=1,xlim=c(-2,2),ylim=c(-2,2),
+     main=paste("epsilon=",epsilon,",minPts=",minPts),
+     xlab="x",ylab="y")
+J <- length(clusters)
+for (j in (1:J)){
+  symbols(x=X[clusters[[j]],1],y=X[clusters[[j]],2],
+          circles=rep(epsilon,length(clusters[[j]])), 
+          inches=FALSE, fg=fg.col[j], bg=bg.col[j], add=TRUE)
+  points(X[clusters[[j]],],pch=19,col=fg.col[j])
+}
+points(X[outliers,],pch=19,col=1)
+legend("topright",c(paste("Cluster ",1:J),"Outliers"),
+       pch=19,col=c(fg.col[1:J],1))
+if (save_pdf) dev.off()
+```
+
+## 3. DBSCAN implementations in R
+
+### Library `fpc`
+
+`fpc::dbscan` generates a density based clustering of arbitrary shape as introduced in Ester et al. (1996).
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("fpc_dbscan.pdf",width = width_pdf, height = height_pdf)
+library(fpc)
+# ?fpc::dbscan
+fpc.ds <- fpc::dbscan(X,eps = epsilon, MinPts = minPts, showplot = 0)
+plot(fpc.ds,X, main=paste("fpc::dbscan; epsilon=",epsilon,",minPts=",minPts),
+     xlab="x",ylab="y",asp=1,xlim=c(-2,2),ylim=c(-2,2))
+if (save_pdf) dev.off()
+```
+
+```{r}
+print(fpc.ds)
+table(cl.true, fpc.ds$cluster)
+```
+
+### Library `dbscan`
+
+`dbscan::dbscan`: Fast reimplementation of the DBSCAN clustering algorithm using a $k$-dimensional tree (kd-tree).
+
+```{r,fig.asp=1,fig.width=6}
+if (save_pdf) pdf("dbscan_dbscan.pdf",width = width_pdf, height = height_pdf)
+library(dbscan)
+# ?dbscan::dbscan
+dbscan.ds <- dbscan::dbscan(X,eps = epsilon, minPts = minPts)
+plot(X, col=dbscan.ds$cluster+1, pch=dbscan.ds$cluster+1, 
+     main=paste("dbscan::dbscan; epsilon=",epsilon,",minPts=",minPts),
+     xlab="x",ylab="y",asp=1,xlim=c(-2,2),ylim=c(-2,2))
+if (save_pdf) dev.off()
+```
+
+```{r}
+table(cl.true, dbscan.ds$cluster)
+```
