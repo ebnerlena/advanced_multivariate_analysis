@@ -16,7 +16,7 @@ x <- iris[,3] # Petal.Length
 hist(x)
 n <- length(x)
 
-# 
+# stop criterions (some thresholds of the algorithm)
 max.iter <- 40
 eps.mu <- 1e-10
 eps.sigma <- 1e-10

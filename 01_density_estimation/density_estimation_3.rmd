@@ -1,0 +1,503 @@
+---
+title: "Density estimation"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## 1. Histograms
+
+### Certificates of Deposit dataset: CDrate data
+
+Three-month certificate of deposit (CD) rates for 69 Long Island banks and thrifts in August 1989 (Smonoff, 1996). Two types of institutions: banks and thrifts.
+
+Reading CDrate.
+```{r CDrate}
+cdrate.df <-read.table("cdrate.dat")
+head(cdrate.df)
+CDrate <- cdrate.df[,1]
+# sort(CDrate)
+# # Stem-and-Leaf plot
+# stem(CDrate)
+```
+The histogram as a function.
+```{r}
+op<-par(mfrow=c(1,2),pty='s')
+hcdr <- hist(CDrate,breaks=seq(7.3999,8.7999,by=.2),fre=F) 
+#hcdr <- hist(CDrate,breaks=seq(7.3999,8.7999,by=.2),plot=FALSE)
+plot(stepfun(hcdr$breaks,c(0,hcdr$density,0)),do.points = F,lty=3,
+     main="The histogram as a function", xlim=c(7.4,8.8))
+plot(stepfun(hcdr$breaks,c(0,hcdr$density,0)),verticals=F,do.points = F,add=T,lwd=2, col=4)
+par(op)
+
+```
+
+
+### Data: Boston Housing
+We'll use the `MASS::Boston` dataset, that contains median house values from Boston neighbourhoods.
+
+```{r}
+data("Boston", package = "MASS")
+head(Boston)
+```
+
+The intervals defining a histogram can have different width.
+```{r}
+op<-par(mfrow=c(1,2))
+nbr=10
+hist(Boston$lstat,br=seq(0,40,l=nbr),freq=F,xlim=c(0,40),ylim=c(0,.08))
+
+
+breaks <- c(0,2,4,7,10,14,18,24,30,40)
+hist(Boston$lstat,br=breaks,freq=F,xlim=c(0,40),ylim=c(0,.08))
+par(op)
+```
+
+Effect of the width of the intervals (or equivalently, the number of intervals) in the histogram appearence.
+
+```{r}
+op<-par(mfrow=c(1,3))
+nbr=6; hist(Boston$lstat,br=seq(0,40,l=nbr),freq=F,xlim=c(0,40),ylim=c(0,.08))
+nbr=21; hist(Boston$lstat,br=seq(0,40,l=nbr),freq=F,xlim=c(0,40),ylim=c(0,.08))
+nbr=50; hist(Boston$lstat,br=seq(0,40,l=nbr),freq=F,xlim=c(0,40),ylim=c(0,.08))
+par(op)
+```
+
+### Simulating data from a mixture of `k` normals
+
+Generate data from a density function $f(x)$ that is the mixture of $k$ normals with parameters $(\mu_i,\sigma_i^2)$, $i=1,\ldots,k$,
+respectively:
+\[
+f(x) = \sum_{i=1}^k \alpha_i f_{N(\mu_i,\sigma_i^2)}(x),
+\]
+where $\alpha_i\ge 0$ and $\sum_{i=1}^k \alpha_i=1$.
+
+```{r mixt.normal}
+# graph.mixt
+# Input:
+#    k: number mixture components
+#    mu: vector of length k with the mean values of the k normals
+#    sigma: vector of length k with the st.dev. values of the k normals
+#    alpha: vector of length k with the weights of each normal
+#    graphic: logical value indicating if the mixture density must be plotted
+#    ...: Other parameters passed to plot()
+#
+# Output:
+#    L, U: extremes of the interval where the mixture density is plotted
+#    x: points at which the mixture density is evaluated 
+#    fx: value of the mixture density at x
+#
+graph.mixt<-
+function(k=1, mu=seq(-2*(k-1),2*(k-1),length=k), sigma=seq(1,1,length=k), alpha=seq(1/k,1/k,length=k), graphic=TRUE,...)
+{
+   L<-min(mu-3*sigma)
+   U<-max(mu+3*sigma)
+         
+   x<- seq(from=L,to=U,length=200)
+   fx<- 0*x
+   Salpha<-sum(alpha)
+   for(i in 1:k){
+   	p<-alpha[i]/Salpha
+#   	fx <- fx + p*exp(-.5*((x-mu[i])/sigma[i])^2)/(sqrt(2*pi)*sigma[i])
+   	fx <- fx + p*dnorm(x,mu[i],sigma[i])
+   }
+   if (graphic){
+      plot(x,fx,type="l",...)
+   }
+   return(list(L = L, U = U, x = x, fx = fx))
+}
+
+# sim.mixt
+# Input:
+#    n: number of simulated data
+#    k: number mixture components
+#    mu: vector of length k with the mean values of the k normals
+#    sigma: vector of length k with the st.dev. values of the k normals
+#    alpha: vector of length k with the weights of each normal
+#    graphic: logical value indicating if the mixture density and the 
+#              histogram of the simulated data must be plotted
+#    ...: Other parameters passed to plot()
+#
+# Output:
+#    x: simulated data
+#
+# Requires: 
+#    graph.mixt
+sim.mixt <- function(n=1,k=1, 
+         mu=seq(-2*(k-1),2*(k-1),length=k), 
+         sigma=seq(1,1,length=k), 
+         alpha=seq(1/k,1/k,length=k), graphic=FALSE,...)
+{
+   csa<-cumsum(alpha)
+   x<-runif(n)
+      
+   for (i in 1:n){
+      comp<-sum(csa<=x[i])+1
+      x[i]<-rnorm(1,mu[comp],sigma[comp])
+   }
+   if(graphic) {
+      out<-graph.mixt(k, mu, sigma, alpha, gr=FALSE)
+      hist(x,freq = FALSE,
+           ylim=c(0,max(c(max(out$fx),max(hist(x,plot=FALSE)$density)))))
+      lines(out$x,out$fx,lty=1,lwd=2)
+   }   
+   return(x)
+}
+```
+
+Generate $n=100$ data from 
+\[
+f(x) = (3/4)N(x; m = 0, s = 1) +(1/4) N(x; m = 3/2, s = 1/3)
+\]
+```{r}
+set.seed(123)
+n <- 100
+mu <- c(0,3/2)
+sigma <- c(1,1/3)
+alpha <- c(3/4,1/4)
+x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=T)
+points(x,0*x,pch="|")
+```
+
+### Variablity plots of the histogram density estimator
+We have generated $n=100$ data from 
+\[
+X\sim f(x) = (3/4)N(x; m = 0, s = 1) +(1/4) N(x; m = 3/2, s = 1/3)
+\]
+In order to plot histograms, one of the ways to compute the appropiate width of boxes is to apply the Scott's formula that would be optimal (in an asymptotic sense) if the data are normal:
+\[
+b = 3.49 \, \mbox{St.Dev}(X)  n^{-1/3}.
+\]
+Let us compute $\mbox{St.Dev}(X)$. The expected value of $X$ is
+\[
+\mathbb{E} (X)=\frac{3}{4} 0 + \frac{1}{4} \frac{3}{2}=\frac{3}{8}.
+\]
+Doing similar computations,
+\[
+\mathbb{E} (X^2)=
+\frac{3}{4} 1 + 
+\frac{1}{4} \left(\frac{1}{9} + \left(\frac{3}{2}\right)^2\right)
+=\frac{193}{144},
+\]
+and
+\[
+\mbox{Var}(X)=\frac{193}{144}-\left(\frac{3}{8}\right)^2=
+\frac{691}{576}=1.199653,
+\]
+so
+\[
+\mbox{St.Dev}(X)=\sqrt{\mbox{Var}(X)}=1.095287
+\]
+
+
+```{r}
+sigma.mixt <- 1.095287
+b <- 3.49 * sigma.mixt * length(x)^(-1/3) 
+# nc: number of boxes 
+nc <- ceiling(diff(range(x))/b)
+boxes <- seq(min(x),max(x),length=nc)
+mixt.2 <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha, lwd=3, graphic = FALSE)
+hx <- hist(x, breaks=boxes,freq=F,ylim=c(0,.5))
+lines(mixt.2$x, mixt.2$fx, lwd=3)
+names(hx)
+```
+
+Now we repeat the generation of the data $S=30$ times and we plot the resulting histograms at the same graphic.
+
+Moreover we do this exercise for 3 different boxes widths:
+small ($b/3$), medium ($b$) and large ($3b$).
+```{r,fig.width=5}
+S <- 30 
+axis.x <- seq(-3.5,3.5,length=100)
+S.hists <- matrix(0,nrow = length(axis.x),ncol=S)
+n <- 100
+mixt.2 <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha, lwd=3, ylim=c(0,.55))
+sigma.mixt <- 1.095287
+b <- 3.49 * sigma.mixt * n^(-1/3)
+for (i in seq(1,S)){
+   x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+   nc <- ceiling(diff(range(x))/b)
+   boxes <- seq(min(x),max(x),length=nc+2)
+#   hist(x, breaks=cajas,freq=F, add=TRUE,lty=3)
+   tmp <- hist(x, breaks=boxes, plot=FALSE) 
+   box.axis.x <- findInterval(axis.x,boxes)+1
+   fH <- c(0,tmp$density,0)
+   S.hists[,i]<-fH[box.axis.x]
+   lines(axis.x,S.hists[,i],lty=3,col="grey")
+}
+lines(mixt.2$x, mixt.2$fx, lwd=3)
+m.S.hists <- apply(S.hists,1,mean)
+sd.S.hists <- apply(S.hists,1,sd)
+lines(axis.x,m.S.hists,col=2,lwd=2)
+lines(axis.x,m.S.hists+2*sd.S.hists,col="pink",lwd=2,lty=2)
+lines(axis.x,m.S.hists-2*sd.S.hists,col="pink",lwd=2,lty=2)
+legend("topleft",
+       c("True density","Histogram estimators",
+         "Average estimators","Confidence bands"),
+       lty=c(1,3,1,2),
+       col=c(1,"grey",2,"pink"),cex=.6)
+```
+
+Now we do this exercise for 3 different boxes widths:
+small ($b/3$), medium ($b$) and large ($3b$).
+```{r, fig.width=12, fig.height=5}
+S <- 30 
+axis.x <- seq(-3.5,3.5,length=100)
+n <- 100
+sigma.mixt <- 1.095287
+op <- par(mfrow=c(1,3))
+# small
+mixt.2 <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha,
+                     lwd=3,ylim=c(0,.55))
+b <- (1/3) * (3.49 * sigma.mixt * n^(-1/3))
+S.hists <- matrix(0,nrow = length(axis.x),ncol=S)
+for (i in seq(1,S)){
+   x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+   nc <- ceiling(diff(range(x))/b)
+   boxes <- seq(min(x),max(x),length=nc+2)
+#   hist(x, breaks=cajas,freq=F, add=TRUE,lty=3)
+   tmp <- hist(x, breaks=boxes, plot=FALSE) 
+   box.axis.x <- findInterval(axis.x,boxes)+1
+   fH <- c(0,tmp$density,0)
+   S.hists[,i]<-fH[box.axis.x]
+   lines(axis.x,S.hists[,i],lty=3,col="grey")
+}
+lines(mixt.2$x, mixt.2$fx, lwd=3)
+m.S.hists <- apply(S.hists,1,mean)
+sd.S.hists <- apply(S.hists,1,sd)
+lines(axis.x,m.S.hists,col=2,lwd=2)
+lines(axis.x,m.S.hists+2*sd.S.hists,col="pink",lwd=2,lty=2)
+lines(axis.x,m.S.hists-2*sd.S.hists,col="pink",lwd=2,lty=2)
+
+# medium
+mixt.2 <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha,
+                     lwd=3,ylim=c(0,.55))
+b <- 3.49 * sigma.mixt * n^(-1/3)
+S.hists <- matrix(0,nrow = length(axis.x),ncol=S)
+for (i in seq(1,S)){
+   x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+   nc <- ceiling(diff(range(x))/b)
+   boxes <- seq(min(x),max(x),length=nc+2)
+#   hist(x, breaks=cajas,freq=F, add=TRUE,lty=3)
+   tmp <- hist(x, breaks=boxes, plot=FALSE) 
+   box.axis.x <- findInterval(axis.x,boxes)+1
+   fH <- c(0,tmp$density,0)
+   S.hists[,i]<-fH[box.axis.x]
+   lines(axis.x,S.hists[,i],lty=3,col="grey")
+}
+lines(mixt.2$x, mixt.2$fx, lwd=3)
+m.S.hists <- apply(S.hists,1,mean)
+sd.S.hists <- apply(S.hists,1,sd)
+lines(axis.x,m.S.hists,col=2,lwd=2)
+lines(axis.x,m.S.hists+2*sd.S.hists,col="pink",lwd=2,lty=2)
+lines(axis.x,m.S.hists-2*sd.S.hists,col="pink",lwd=2,lty=2)
+
+# large
+mixt.2 <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha,
+                     lwd=3,ylim=c(0,.55))
+b <- 3 * (3.49 * sigma.mixt * n^(-1/3))
+for (i in seq(1,S)){
+   x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+   nc <- ceiling(diff(range(x))/b)
+   boxes <- seq(min(x),max(x),length=nc+2)
+#   hist(x, breaks=cajas,freq=F, add=TRUE,lty=3)
+   tmp <- hist(x, breaks=boxes, plot=FALSE) 
+   box.axis.x <- findInterval(axis.x,boxes)+1
+   fH <- c(0,tmp$density,0)
+   S.hists[,i]<-fH[box.axis.x]
+   lines(axis.x,S.hists[,i],lty=3,col="grey")
+}
+lines(mixt.2$x, mixt.2$fx, lwd=3)
+m.S.hists <- apply(S.hists,1,mean)
+sd.S.hists <- apply(S.hists,1,sd)
+lines(axis.x,m.S.hists,col=2,lwd=2)
+lines(axis.x,m.S.hists+2*sd.S.hists,col="pink",lwd=2,lty=2)
+lines(axis.x,m.S.hists-2*sd.S.hists,col="pink",lwd=2,lty=2)
+
+par(op)
+```
+
+## 2. Kernel density estimation
+
+### Density estimation by a moving histogram
+
+```{r}
+set.seed(123)
+n <- 100
+mu <- c(0,3/2)
+sigma <- c(1,1/3)
+alpha <- c(3/4,1/4)
+
+out <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha, col=4,ylim=c(0,.45))
+x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+
+h <- 0.3/2 # to obtain the plot in the slides
+lines( density(x, bw = h, kernel = "rectangular") )
+points(x,0*x,pch="|")
+abline(h=0,col=8)
+```
+
+### Kernel density estimation: moving and smoothing the histogram
+
+```{r}
+set.seed(123)
+n <- 100
+mu <- c(0,3/2)
+sigma <- c(1,1/3)
+alpha <- c(3/4,1/4)
+
+out <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha, col=4,ylim=c(0,.45))
+x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+
+h <- 0.3
+lines( density(x, bw = h, kernel = "gaussian") )
+points(x,0*x,pch="|")
+abline(h=0,col=8)
+```
+
+### Variablility plot for the kernel density estimator
+Repeat $S=30$ times: Generate $n=100$ data from a mixture of mormals, 
+\[
+  f(x) = (3/4)N(x; m = 0, s = 1)+(1/4) N(x; m = 3/2, s = 1/3),
+\]
+then plot the resulting kernel density estimator.
+
+```{r,fig.width=5}
+S <- 20 
+n <- 100
+mu <- c(0,3/2)
+sigma <- c(1,1/3)
+alpha <- c(3/4,1/4)
+mixt.2 <- graph.mixt(k=2, mu=mu, sigma=sigma, alpha=alpha, lwd=3,ylim=c(0,0.55))
+for (i in seq(1,S)){
+   x <- sim.mixt(n=n, k=2, mu=mu, sigma=sigma, alpha=alpha, gr=F)
+   lines(density(x,adjust=.75),col="grey")
+}
+lines(mixt.2$x, mixt.2$fx, lwd=3)
+```
+
+```{r, prtord_variability_plot_kernel}
+# Defining the function variability_plot_kernel
+#
+variability_plot_kerenl <- function(k=1, 
+         mu=seq(-2*(k-1),2*(k-1),length=k), 
+         sigma=seq(1,1,length=k), 
+         alpha=seq(1/k,1/k,length=k), 
+         S=20, n=100, r=100,  
+         h="nrd0", ...){
+   # computing the density of the mixture of normals
+   k <- length(mu)
+ 
+   minx <- min(mu-3*sigma)
+   maxx <- max(mu+3*sigma)
+   y <- seq(minx,maxx,length=r)
+   fy <- 0*y
+   Salpha<-sum(alpha)
+   for(i in 1:k){
+   	p<-alpha[i]/Salpha
+   #   	fy <- fy + p*exp(-.5*((y-mu[i])/sigma[i])^2)/(sqrt(2*pi)*sigma[i])
+   	fy <- fy + p*dnorm(y,mu[i],sigma[i])
+   }
+
+   hfy <- matrix(0,S,r)
+   
+   for (i in 1:S){
+      x <- sim.mixt(n=n,k=k,mu=mu,sigma=sigma,alpha=alpha)
+      dx <- density(x, bw=h, from=minx, to=maxx, n=r, ...)   
+      hfy[i,] <- dx$y
+   }
+   
+   
+   m_hf <- apply(hfy,2,mean)
+   sd_hf <- apply(hfy,2,sd)
+    
+   delta <- y[2]-y[1]
+   ECM <- sd_hf^2+(fy-m_hf)^2
+   MISE <- sum(ECM)*delta
+   #[MISE,naux] <- simpson(ECM,minx,maxx)
+   
+   plot(y,fy,ty="l",  lwd=3, ...)
+   title(main=paste("MISE= ",MISE,sep=""))
+   lines(y,m_hf,col=2)
+   L <- m_hf-1.96*sd_hf
+   U <- m_hf+1.96*sd_hf
+   lines(y,L,col=3,lty=2)
+   lines(y,U,col=3,lty=2)
+   
+   return(list(y=y,fy=fy,m_hf=m_hf,sd_hf=sd_hf,MISE=MISE))
+}
+```
+
+```{r, warning=FALSE,fig.width=12, fig.height=5}
+S <- 30 
+n <- 100
+mu <- c(0,3/2)
+sigma <- c(1,1/3)
+alpha <- c(3/4,1/4)
+
+r <- 100
+
+op<-par(mfrow=c(1,3))
+vpk.1 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha, 
+         S=S, n=n, r=r, h="nrd0", adjust=.4,ylim=c(0,0.55))  
+
+vpk.2 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha, 
+         S=S, n=n, r=r, h="nrd0", adjust=.75,ylim=c(0,0.55))  
+
+vpk.3 <- variability_plot_kerenl(mu=mu, sigma=sigma, alpha=alpha, 
+         S=S, n=n, r=r, h="nrd0", adjust=1.5,ylim=c(0,0.55))  
+par(op)
+```
+
+
+## 3. Multivariate density estimation. 
+
+### 3.1 Bivariate density estimation. 
+
+```{r}
+library(sm)
+op <- par(mfrow=c(1,2))
+sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),
+           phi=30,theta=60,col=5,
+           xlab="lstat",ylab="rm",zlab="density")
+
+sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),display="slice",
+           xlab="lstat",ylab="rm")
+sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),display="slice",add=T,col=2,props=c(90))
+points(Boston$lstat,Boston$rm,pch=19,cex=.3)
+par(op)
+```
+
+```{r,eval=FALSE}
+library(rgl)
+plot(Boston$lstat,Boston$rm)
+out <- sm.density(cbind(Boston$lstat,Boston$rm),
+                  h=c(1.5,.15),display="none")
+persp3d(x=out$eval.points[,1],
+        y=out$eval.points[,2],
+        z=out$estimate,col="lightblue")
+```
+
+### 3.2 Density estimation for a 3-dim dataset. 
+
+Library `ks` includes, amonf other, the function `kde` for density estimations in dimensions 1 to 6, as well as a method of `plot` for representing graphically the estimated dnsities. 
+See `help(kde)` and `help(plot.kde)` and run the included examples. 
+
+Consider again the Boston dataset. 
+The following code estimates the joint density of 3 variables: `(age, lstat, medv)`:
+```{r}
+# names(Boston[,c(7,13,14)])
+# [1] "age"   "lstat" "medv" 
+require("ks")
+d3Boston <- kde(Boston[,c(7,13,14)])
+plot(d3Boston,phi=20,theta=210)
+```
+
+```{r,eval=FALSE}
+require(rgl)
+plot(d3Boston,display="rgl")
+```

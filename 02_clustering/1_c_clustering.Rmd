@@ -114,10 +114,10 @@ K^*=\arg\min_{K}\{K: G(K)\ge G(K+1)-\mbox{sd}_{K+1}\}.
 ```{r}
 # Create a function doing hclust + cutree
 hclusCut <- function(x, k, d.meth = "euclidean", ...){
-   list(cluster = cutree(hclust(dist(x, method=d.meth), ...), k=k))
+   list(cluster = cutree(hclust(dist(x, method=d.meth), ...), k=k)) # returns partitions
 }
 
-Gap <- clusGap(iris[,-5], FUNcluster=hclusCut, K.max=6, B = 500, method="ward.D")
+Gap <- clusGap(iris[,-5], FUNcluster=hclusCut, K.max=6, B = 500, method="ward.D") # B=number of points used in simulation
 plot(1:6,Gap$Tab[,"gap"],type="b")
 points(1:6,Gap$Tab[,"gap"]+ Gap$Tab[,"SE.sim"],pch="+", col=2)
 points(1:6,Gap$Tab[,"gap"]- Gap$Tab[,"SE.sim"],pch="+",col=2)
