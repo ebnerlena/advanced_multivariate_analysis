@@ -19,7 +19,9 @@ In particular we are interested in the joint distributions of centered and scale
 
 ```{r,fig.height=4.5,fig.width=4.5,fig.align='center',echo=TRUE,eval=TRUE}
 data("Boston", package = "MASS")
-X <- scale(Boston[,c(13,6)])
+X <- scale(Boston[,c(13,6)]) # scale data with standarddeviation
+# because its better to work with data that is scaled,
+# then you can use standardplot in both axes and data is always same distributed
 plot(X,asp=1)
 ```
 
@@ -32,6 +34,8 @@ For instance, the following code performs this estimation for $a=0.5$:
 library(sm)
 plot(X,asp=1,col=8)
 sm.density(X,h=.5*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
+# h=.5*c(1,1) = scaling both axes
+# kernel densitiy estimator result with optimal bandwidth of 0.3
 ```
 
 Use the *maximum log-likelihood cross-validation method* for choosing the value of $a$, whem $a$ takes values in the vector `seq(0.1,1,by=0.1)`. Then repeat the previous density estimation using the chosen value of $a$.
@@ -84,11 +88,17 @@ k<-3
 library(mclust)
 GMM_3 <- Mclust(X,G=3)
 clust.ind <- GMM_3$classification
-summary(GMM_3,parameters=TRUE)
+summary(GMM_3,parameters=TRUE) 
+# chooses model with VVV varying shape, valume and orientatin
+# df in model = equal to number of params in model
+# covariance matrixes are symetric
+# GMM_3$classification is telling is to which cluster each observation is assigned
 ```
 
 ```{r,fig.asp=1}
 plot(GMM_3, what="classification",asp=1)
+# points are mean of cluster
+# asp is used for apect ratio between axes
 ```
 ```{r,fig.asp=1}
 plot(GMM_3, what="density",asp=1)
@@ -103,7 +113,6 @@ plot(X,col=clust.ind,asp=1)
 - Consider the bivariate data set of the points in this cluster.
 - Estimate non-parametrically the joint density of `lstat` and `rm`, conditional to this cluster *(Use the optimal bandwith found in the first point)*.
 - Represent the estimated bivariate density using the level curve that covers the 75% of the points in this cluster.
-
  
 
 ```{r densities,fig.asp=1,warning=FALSE, message=FALSE}
@@ -126,6 +135,9 @@ summary(GMM_BIC,parameters=TRUE)
 
 ```{r,fig.asp=1}
 plot(GMM_BIC, what="BIC",asp=1)
+# see what model optains the best (highest) value for the bic
+# as the functoni Mclust is trying to maximze the BIC
+# model VVV with 3 clusters gives as the highest value
 ```
 
 ```{r,fig.asp=1}
