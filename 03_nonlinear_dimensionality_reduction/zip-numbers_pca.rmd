@@ -1,0 +1,160 @@
+---
+title: 'PCA: Example of ZIP numbers'
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# ZIP numbers, from the book of Hastie et al. (2009)
+#
+# Data originally in
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.train.gz
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.test.gz
+#
+zip.train <- read.table("./03_nonlinear_dimensionality_reduction/zip.train")
+dim(zip.train)
+n<-dim(zip.train)[1]
+
+zip.test <- read.table("./03_nonlinear_dimensionality_reduction/zip.test")
+dim(zip.test)
+```
+
+```{r}
+# ploting 1 digit
+plot.zip <- function(x,use.first=FALSE){
+  x<-as.numeric(x)
+  if (use.first){
+    x.mat <- matrix(x,16,16)
+  }else{
+    x.mat <- matrix(x[-1],16,16)
+  }
+  image(1:16,1:16,x.mat[,16:1],
+        col=gray(seq(1,0,l=12)))
+  if (!use.first) title(x[1])
+  #col=gray(seq(1,0,l=2)))
+}
+```
+
+```{r}
+op <- par(mfrow=c(3,4))
+apply(zip.train[sample(1:n,12),],1,plot.zip)
+par(op)
+```
+
+```{r}
+zip.PC <- princomp(zip.train[,-1])
+summary(zip.PC)
+biplot(zip.PC)
+```
+
+```{r}
+plot(zip.PC$scores[,1:2],pch=19,cex=.5,col=zip.train[,1]+1)
+```
+
+```{r}
+plot(zip.PC$scores[,c(1,3)],pch=19,cex=.5,col=zip.train[,1]+1)
+```
+
+```{r}
+pairs(zip.PC$scores[,1:4], pch=19,cex=.5,col=zip.train[,1]+1)
+```
+
+```{r}
+eigvals <- zip.PC$sdev^2
+pctg.VE <- 100*eigvals/sum(eigvals)
+cum.pctg.VE <- cumsum(pctg.VE)
+
+pctg.VE[1:20]
+# Comp.1    Comp.2    Comp.3    Comp.4    Comp.5    Comp.6 
+# 17.884424  8.967040  6.571727  5.554546  4.914189  3.851923 
+# Comp.7    Comp.8    Comp.9   Comp.10   Comp.11   Comp.12 
+# 3.271056  3.071029  2.566823  2.436703  2.177514  2.020786 
+# Comp.13   Comp.14   Comp.15   Comp.16   Comp.17   Comp.18 
+# 1.703614  1.469115  1.416223  1.298084  1.224955  1.152249 
+# Comp.19   Comp.20 
+# 1.060983  0.995179 
+cum.pctg.VE[1:20]
+# Comp.1   Comp.2   Comp.3   Comp.4   Comp.5   Comp.6   Comp.7 
+# 17.88442 26.85146 33.42319 38.97774 43.89193 47.74385 51.01490 
+# Comp.8   Comp.9  Comp.10  Comp.11  Comp.12  Comp.13  Comp.14 
+# 54.08593 56.65276 59.08946 61.26697 63.28776 64.99137 66.46049 
+# Comp.15  Comp.16  Comp.17  Comp.18  Comp.19  Comp.20 
+# 67.87671 69.17480 70.39975 71.55200 72.61298 73.60816 
+
+cum.pctg.VE[c(12,22,55,100)]
+# Comp.12  Comp.22  Comp.55 Comp.100 
+# 63.28776 75.49888 90.14044 96.01632 
+k <- 12  # 63% varianza total
+```
+
+```{r}
+op <- par(mfrow=c(3,4))
+apply(t(zip.PC$loadings[,1:12]),1,plot.zip,use.first=TRUE)
+par(op) 
+```
+
+```{r}
+op <- par(mfrow=c(3,4))
+for (j in 1:12){
+  boxplot(zip.PC$scores[,j] ~ zip.train[,1])
+  abline(h=0,col=2,lty=2)
+}
+par(op)
+```
+
+```{r}
+# Interpreting the j-th PC with graphics of the form
+#     mean +/- cte.j * PC_j
+op<-par(mfrow=c(3,4))
+zip.mean <- zip.PC$center
+for (j in 1:k){
+  plot.zip(zip.PC$loadings[,j], use.first=TRUE)
+  title(paste("PC ",j,"; %VE=",round(pctg.VE[j],2)),col=3)
+  cte.j <- quantile(abs(zip.PC$scores[,j]),.9)
+  plot.zip(zip.mean - cte.j * zip.PC$loadings[,j], use.first=TRUE)
+  title(paste("mean - cte.j * PC",j))
+  plot.zip(zip.mean, use.first=TRUE)
+  title("mean")
+  plot.zip(zip.mean + cte.j * zip.PC$loadings[,j], use.first=TRUE)
+  title(paste("mean + cte.j * PC",j))
+}
+par(op)
+```
+
+```{r}
+# Approximation of an observation by the first k PCs:
+# X_i \approx \bar{X} + \sum_{j=1}^k \psi_{ij} PC_j
+i<-sample(n,1)
+op<-par(mfrow=c(3,4))
+plot.zip(zip.train[i,])
+plot.zip(zip.mean,use.first = TRUE)
+approx.zip.i <- zip.mean
+for (j in 1:10){
+  approx.zip.i <- approx.zip.i + zip.PC$scores[i,j]*zip.PC$loadings[,j]
+  plot.zip(approx.zip.i,use.first = TRUE)
+  title(paste("Up tp PC ",j))
+}
+par(op)
+```
+
+```{r}
+# Approximation of an observation by the first k PCs:
+# X_i \approx \bar{X} + \sum_{j=1}^k \psi_{ij} PC_j
+i<-sample(n,1)
+op<-par(mfrow=c(3,4))
+plot.zip(zip.train[i,])
+plot.zip(zip.mean,use.first = TRUE)
+approx.zip.i <- zip.mean
+for (j in c(1,2,3,5,10,20,50,100,150,200)){
+  approx.zip.i <- zip.mean + 
+    zip.PC$loadings[,1:j] %*% t(t(zip.PC$scores[i,1:j]))
+  plot.zip(approx.zip.i,use.first = TRUE)
+  title(paste("Up tp PC ",j))
+}
+par(op)
+```
