@@ -1,0 +1,150 @@
+---
+title: 'PCOP: Example of 0''s in the ZIP data'
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# ZIP numbers, from the book of Hastie et al.
+#
+# Data originally in
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.train.gz
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.test.gz
+#
+
+# We analyze digits "0"
+zip.train <- read.table("zip.train")
+I.0 <- (zip.train[,1]==0)
+zip.0 <- zip.train[I.0,]
+n<-dim(zip.0)[1]
+```
+
+```{r, fig.asp=1}
+# Principal Components
+zip.0.PC <- princomp(zip.0[,-1])
+pairs(zip.0.PC$scores[,1:4], pch=19,cex=.5, asp=1)
+
+eigvals <- zip.0.PC$sdev^2
+pctg.VE <- 100*eigvals/sum(eigvals)
+cum.pctg.VE <- cumsum(pctg.VE)
+
+cum.pctg.VE[1:6]
+#   Comp.1   Comp.2   Comp.3   Comp.4   Comp.5   Comp.6 
+# 28.19983 40.92671 51.00227 56.44046 61.05261 64.97223 
+```
+
+```{r, fig.asp=1}
+# pcop: principal curve of oriented points
+#
+# install.packages("princurve")
+# install.packages("Rpcop")
+library(princurve) # to be able to use the function "project_to_curve" inside the "pcop" function
+library(Rpcop)
+#source("pcop.R") # It needs to have the executable "PCOP.exe" in the working directory
+
+prcv.0 <- pcop(x=zip.0.PC$scores[,1:4],Ch=1.5,Cd=.3,plot.true=TRUE,col=2,lwd=4, asp=1)
+#names(prcv.0)
+#[1] "pcop.f1" "pcop.f2"
+pcop.f1 <- prcv.0$pcop.f1
+pcop.f2 <- prcv.0$pcop.f2
+
+#names(pcop.f1)
+#[1] "param"    "dens"     "span"     "orth.var" "pop1"     "pop2"     "pop3"     "pop4"    
+#[9] "pr.dir1"  "pr.dir2"  "pr.dir3"  "pr.dir4" 
+
+#names(pcop.f2)
+#[1] "s"        "ord"      "lambda"   "dist_ind" "dist"    
+
+prcv.0.HSPC <- principal_curve(zip.0.PC$scores[,1:4])
+#names(prcv.0.HSPC)
+#[1] "s"              "ord"            "lambda"         "dist"           "converged"     
+#[6] "num_iterations" "call"          
+```
+
+```{r, fig.width=6, fig.height=6, fig.asp=1}
+# plotting pcop.f1
+plot(zip.0.PC$scores[1:1190,1:2],col=8, asp=1)
+points(pcop.f1$pop1,pcop.f1$pop2,col=1,pch=19)
+lines(pcop.f1$pop1,pcop.f1$pop2,col=1,lwd=2)
+segments(pcop.f1$pop1, pcop.f1$pop2, 
+         pcop.f1$pop1+pcop.f1$pr.dir1, pcop.f1$pop2+pcop.f1$pr.dir2, 
+         col=4,lwd=2)
+
+lines(pcop.f2$s[pcop.f2$ord, 1:2],col=2)
+```
+
+```{r}
+# Percentage of variability explained by the principal curve: format 1
+dens <- pcop.f1$dens
+param <- pcop.f1$param
+orth.var <- pcop.f1$orth.var
+op <-par(mfrow=c(2,1))
+plot(param,dens,type="b")
+plot(param,orth.var,type="b")
+par(op)
+dx <- (c(0,diff(param))+c(diff(param),2))/2
+Integ.dens <- sum(dens*dx) 
+# [1] 1.762399 # It should be close to 1
+dens <- dens/Integ.dens
+E.param <- sum(param*dens*dx) # It should be approximately equal to 0
+E.param.2 <- sum(param*param*dens*dx)
+Var.param <- E.param.2 - E.param^2
+E.orth.var <- sum(orth.var*dens*dx) 
+(pctg.VE.pcop <- 100*Var.param  /(Var.param  + E.orth.var ))
+# [1] 47.11976
+```
+
+```{r}
+# Percentage of variability explained by the principal curve: format 2
+Var.pr.cv <- var(pcop.f2$lambda)
+Var.resid.pr.cv <- pcop.f2$dist/(n-1)
+(pctg.VE.pr.cv <- 100*Var.pr.cv /(Var.pr.cv + Var.resid.pr.cv))
+# [1] 67.06789
+```
+
+```{r}
+# Percentage of variability explained by the HSPC
+Var.HSPC <- var(prcv.0.HSPC$lambda)
+Var.resid.HSPC <- prcv.0.HSPC$dist/(n-1)
+(pctg.VE.HSPC <- 100*Var.HSPC /(Var.HSPC + Var.resid.HSPC))
+# [1] 81.73199
+```
+
+```{r,fig.asp=.66}
+# Comparing the PCOP with the HSPC
+op <-par(mfrow=c(2,3))
+plot(zip.0.PC$scores[,1:2],col=8, asp=1)
+lines(pcop.f2$s[pcop.f2$ord,1:2],col=4,lwd=2)
+lines(prcv.0.HSPC$s[prcv.0.HSPC$ord,1:2],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,c(1,3)],col=8, asp=1)
+lines(pcop.f2$s[pcop.f2$ord,c(1,3)],col=4,lwd=2)
+lines(prcv.0.HSPC$s[prcv.0.HSPC$ord,c(1,3)],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,c(1,4)],col=8, asp=1)
+lines(pcop.f2$s[pcop.f2$ord,c(1,4)],col=4,lwd=2)
+lines(prcv.0.HSPC$s[prcv.0.HSPC$ord,c(1,4)],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,2:3],col=8, asp=1)
+lines(pcop.f2$s[pcop.f2$ord,2:3],col=4,lwd=2)
+lines(prcv.0.HSPC$s[prcv.0.HSPC$ord,2:3],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,c(2,4)],col=8, asp=1)
+lines(pcop.f2$s[pcop.f2$ord,c(2,4)],col=4,lwd=2)
+lines(prcv.0.HSPC$s[prcv.0.HSPC$ord,c(2,4)],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,3:4],col=8, asp=1)
+lines(pcop.f2$s[pcop.f2$ord,3:4],col=4,lwd=2)
+lines(prcv.0.HSPC$s[prcv.0.HSPC$ord,3:4],col=2,lwd=2)
+par(op)
+
+#library(rgl)
+#plot3d(zip.0.PC$scores[,1:3],col=8)
+#lines3d(pcop.f2$s[pcop.f2$ord,1:3],col=4,lwd=2)
+#lines3d(prcv.0.HSPC$s[prcv.0.HSPC$ord,1:3],col=2,lwd=2)
+```

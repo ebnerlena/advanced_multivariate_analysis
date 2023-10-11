@@ -1,0 +1,200 @@
+---
+title: 'MDS example: Morse code'
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+The purpose of this example is to learn to apply multidimensional scaling (MDS) in R. The data set we will use in this practical refers to Morse code.
+There are 36 symbols in the standard version of Morse code.  
+Each Morse code symbol represents a text character (26 letters plus 10 numeral) and is represented by a unique sequence of dots and dashes.
+
+### Reading the data
+Runs the following R instructions:
+
+```{r reading}
+# install.packages("xgobi") # Discontinued at CRAN since 2022-03-07
+#
+# After 2022-03-07, download the last "tar.gz" file from "https://cran.r-project.org/src/contrib/Archive/xgobi/"
+# Then do
+# install.packages("03_nonlinear_dimensionality_reduction/xgobi_1.2-15.tar.gz", repos = NULL, type = "source")
+library(xgobi)
+data(morsecodes)
+# ?morsecodes
+
+morsecodes.row
+```
+
+They allow you to have the Morse code (`morsecode.row`) as well as a distance matrix (`morsecodes.dist`) between symbols coming from the confusion rates observed by exposing subjects to pairs of Morse codes (Rothkopf 1957; for more information you can see [here](https://rdrr.io/cran/fechner/man/morse.html)).
+
+Instead of basing MDS on `morsecodes.dist` distance matrix, we use here the R function `adist` to compute the approximate string distance between the character vectors representing the 36 Morse codes (`morsecodes.row[,2]`). 
+The distance computed by `adist` is a *generalized Levenshtein distance* (also known as *edit distance*, and related to *Hamming distance*), 
+giving the minimal possibly weighted number of insertions, deletions and substitutions needed to transform one string into another.
+You can read the R help page for `adist`. 
+
+### Working with Morse codes
+
+1. Computing the edit distance matrix between Morse code symbols using `adist`. 
+```{r}
+# computing the generalized Levenshtein (edit) distance between letters morse code
+ad.mc <- adist(morsecodes.row[,2])
+image(1:36, 1:36, ad.mc, main="`morsecodes' edit distances")
+text(1:36,1:36, morsecodes.row[,1])
+# yellow/white = distance 0
+# dark colors = large distances
+``` 
+
+```{r}
+image(1:36, 1:36, ad.mc, main="`morsecodes' edit distances")
+text(1:36,1:36, morsecodes.row[,2],cex=2)
+``` 
+
+2. Performing a **classical metric MDS** of the data, using the `cmdscale` program. 
+
+```{r}
+out <- cmdscale(ad.mc,k=6,eig=TRUE)
+out$eig
+# not an euclidean matrix so we cannot recover the full matrix again
+``` 
+
+What is the value of the elements in `out$GOF`?
+What is their meaning?
+
+
+```{r}
+out$GOF
+print(cumsum(pmax(out$eig,0))/sum(abs(out$eig)))
+print(cumsum(pmax(out$eig,0))/sum(pmax(out$eig,0)))
+``` 
+
+3. Calcualting the goodness-of-fit (in percentage) of the three-dimensional solution:
+
+```{r}
+cumsum(out$eig[1:3])/sum(abs(out$eig))*100
+cumsum(out$eig[1:3])/sum(pmax(out$eig,0))*100
+``` 
+
+
+4. Representing the first 3 dimensions obtained by MDS: 
+
+```{r}
+pairs(out$points)
+``` 
+
+```{r}
+pairs(out$points,col=1+((1:36)>26))
+``` 
+
+```{r}
+pairs(out$points,col=nchar(morsecodes.row[,2]))
+``` 
+
+```{r}
+pairs(out$points,
+      upper.panel=function(x,y,...){text(x,y,morsecodes.row[,1],...)},
+      lower.panel=function(x,y,...){text(x,y,morsecodes.row[,2],...)},
+      col=nchar(morsecodes.row[,2])
+)
+``` 
+
+```{r}
+pairs(out$points[,1:3],
+      upper.panel=function(x,y,...){text(x,y,morsecodes.row[,1],...)},
+      lower.panel=function(x,y,...){text(x,y,morsecodes.row[,2],cex=2,...)},
+      col=nchar(morsecodes.row[,2])
+)
+# rechteck below var 1 is first principal coordinate: probablity separating words that only use dashes
+# bottom left: top .. -, bottom --..
+
+# var2 = some words only have few characters, other have more
+``` 
+
+```{r}
+library(rgl)
+text3d(out$points[,1:3],texts=morsecodes.row[,1],col=nchar(morsecodes.row[,2]),cex=2)
+
+# structured as cone
+# visualize dataset in 3d
+```
+
+5. Trying to give an *interpretation* to each of the first 3 dimensions.
+
+- 1st dim: (number of '-') - (number of '.')
+- 2nd dim: length of the symbols
+- 3rd dim:    [(number of initials '.') - (number of finals '.')] - [ (number of initials '-') - (number of finals '-') ]
+
+
+6. Is it possible to find a configuration of the 36 objects in $k$ dimensions that will represent the original distance matrix exactly? Why or why not? If so, how many dimensions would be needed to obtain this exact representation?
+
+*No, because there are some negative eigenvalues. So `ad.mc` is not an Euclidean distance matrix.*
+
+
+7. Are there any zero eigenvalues? Can you explain these?
+
+*Yes, because the mean of the rows of X is 0.*
+
+8. Compute the fitted distances according to the three-dimensional MDS solution. 
+Graph fitted and observed distances and assess the goodness of fit by regression. 
+Report the coefficient of determination of this regression.
+
+```{r}
+d3.ad.mc <- dist(out$points[,1:3])
+
+plot(as.dist(ad.mc),d3.ad.mc)
+R2d <- cor(as.dist(ad.mc),d3.ad.mc)^2
+# R2d
+# [1] 0.820702
+``` 
+
+9. Now we perform **non-metric MDS** with the `isoMDS` program. 
+Plot the three-dimensional solution, labeling the points again with both, the Morse codes and the alphanumeric characters.
+
+```{r}
+library(MASS) # perform non-metrical scaling
+n <- nrow(morsecodes.row)
+k <- 3
+
+# initial configuration: cmdscale
+out.iso <- isoMDS(ad.mc, k=k)
+# initial configuration: random uniform
+ini.config <- matrix(runif(k*n),ncol=k)
+out.iso <- isoMDS(ad.mc, y=ini.config, k=k)
+
+pairs(out.iso$points[,1:3],
+      upper.panel=function(x,y,...){text(x,y,morsecodes.row[,1],...)},
+      lower.panel=function(x,y,...){text(x,y,morsecodes.row[,2],cex=2,...)},
+      col=nchar(morsecodes.row[,2])
+)
+``` 
+
+10. Give an *interpretation* to each of the first 3 dimensions and compare them to those obtained by classical metric scaling. 
+
+
+11. Compute the stress for a 1, 2, 3, 4, 5 and 6 dimensional solution. 
+Plot stress as a function of the dimension.
+How many dimensions do you think are necessary to obtain a "good fit"?
+```{r}
+k<-6
+stress <- numeric(k)
+dimens <- 1:k
+for (i in dimens){
+  stress[i] <- isoMDS(ad.mc, k=i)$stress
+}
+plot(dimens, stress, type="l")
+``` 
+
+12. Make a scatterplot matrix of the first three dimensions of the classical metric MDS solution and 
+the non-metric MDS solution (use $k=3$). Calculate the correlation matrix of these six variables 
+and comment on your results.
+```{r}
+pairs(cbind(out$points[,1:3], out.iso$points[,1:3]))
+round( cor(cbind(out$points[,1:3], out.iso$points[,1:3])), 2)
+``` 
+
+

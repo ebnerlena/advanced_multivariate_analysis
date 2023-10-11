@@ -1,0 +1,190 @@
+---
+title: 'HSPC: Example of 0''s in the ZIP data'
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Runnig the example of function `principal_curve` from library `princurve`:
+```{r, fig.width=8, fig.height=5}
+# install.packages("princurve")
+library(princurve)
+x <- runif(100,-1,1)
+x <- cbind(x, x ^ 2 + rnorm(100, sd = 0.1))
+fit <- principal_curve(x)
+
+plot(fit,xlim=range(x[,1]),ylim=range(x[,2]),asp=1)
+points(x,col=4)
+#lines(fit)
+points(fit)
+whiskers(x, fit$s)
+```
+
+Projecting new points to the fitted principal curve:
+```{r, fig.width=8, fig.height=5}
+plot(fit,xlim=range(x[,1]),ylim=range(x[,2]),asp=1)
+points(x,col=4)
+#lines(fit)
+points(fit)
+whiskers(x, fit$s)
+
+x.new <- matrix(c(0.3,0.2),ncol=2,byrow=TRUE)
+points(x.new,col=2)
+x.new.proj <- project_to_curve(x.new, fit$s[fit$ord,])
+points(x.new.proj$s,col=2,pch=19)
+segments(x0=x.new[,1],y0=x.new[,2],x1=x.new.proj$s[,1],y1=x.new.proj$s[,2],col=2)
+```
+
+Smoothing is required for computing the principal curve.
+By default, the `smooth.spline` function is used, with the smoothing parameter chosen by *Generalized Cross-Validation* (GCV).
+The amount of smoothing can be modified using, for instance, the argument `df` (*degrees of freedom*). 
+Here you have an example:
+
+```{r, fig.width=8, fig.height=5}
+plot(x,col="gray",asp=1)
+lines(fit)
+
+fit.df.3 <- principal_curve(x,df=3)
+lines(fit.df.3,col=2)
+
+fit.df.15 <- principal_curve(x,df=15)
+lines(fit.df.15,col=4)
+
+legend("top", c("Default smoothing","df=3","df=15"),col=c(1,2,4),lty=1)
+```
+
+The parameter `df` can be chosen by leave-one-out croos-validation or by $k$-fold cross-validation.
+The function `project_to_curve` should be used and, specifically the element `dist` of the object it returns.
+
+
+```{r }
+# ZIP numbers, from the book of Hastie et al.
+#
+# Data originally in
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.train.gz
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.test.gz
+#
+
+# ploting 1 digit
+plot.zip <- function(x,use.first=FALSE){
+  x<-as.numeric(x)
+  if (use.first){
+    x.mat <- matrix(x,16,16)
+  }else{
+    x.mat <- matrix(x[-1],16,16)
+  }
+  image(1:16,1:16,x.mat[,16:1],
+        col=gray(seq(1,0,l=12)))
+  if (!use.first) title(x[1])
+  #col=gray(seq(1,0,l=2)))
+}
+```
+
+```{r }
+# We analyze digits "0"
+zip.train <- read.table("zip.train")
+I.0 <- (zip.train[,1]==0)
+zip.0 <- zip.train[I.0,]
+n<-dim(zip.0)[1]
+
+# Principal Components
+zip.0.PC <- princomp(zip.0[,-1])
+pairs(zip.0.PC$scores[,1:4], pch=19,cex=.5)
+```
+
+```{r }
+eigvals <- zip.0.PC$sdev^2
+pctg.VE <- 100*eigvals/sum(eigvals)
+cum.pctg.VE <- cumsum(pctg.VE)
+
+cum.pctg.VE[1:6]
+#   Comp.1   Comp.2   Comp.3   Comp.4   Comp.5   Comp.6 
+# 28.19983 40.92671 51.00227 56.44046 61.05261 64.97223 
+```
+
+```{r }
+# Principal curve
+#
+prcv.0 <- principal_curve(as.matrix(zip.0[,-1]))
+names(prcv.0)
+# s contains the projected points over the principal curve 
+dim(prcv.0$s)
+# [1] 1194  256
+```
+
+```{r, fig.height=3, fig.width=15}
+# How does vary the projected individuals 
+# when moving along the principal curve?
+op <-par(mfrow=c(1,5))
+plot.zip(prcv.0$s[prcv.0$ord[1],],use.first = TRUE)    # lambda min
+plot.zip(prcv.0$s[prcv.0$ord[n/4],],use.first = TRUE)  # lambda Q1
+plot.zip(prcv.0$s[prcv.0$ord[n/2],],use.first = TRUE)  # lambda median
+plot.zip(prcv.0$s[prcv.0$ord[3*n/4],],use.first = TRUE)# lambda Q2
+plot.zip(prcv.0$s[prcv.0$ord[n],],use.first = TRUE)    # lambda max
+par(op)
+```
+
+```{r }
+# Relationship between lambda, that are the "scores" on the principal curve,
+# and the scores on the first Principal Components
+op <-par(mfrow=c(2,2))
+plot(prcv.0$lambda, zip.0.PC$scores[,1])
+plot(prcv.0$lambda, zip.0.PC$scores[,2])
+plot(prcv.0$lambda, zip.0.PC$scores[,3])
+plot(prcv.0$lambda, zip.0.PC$scores[,4])
+par(op)
+```
+
+```{r }
+# Percentage of variability explained by the principal curve
+Var.pr.cv <- var(prcv.0$lambda)
+Var.resid.pr.cv <- prcv.0$dist/(n-1)
+(pctg.VE.pr.cv <- 100*Var.pr.cv /(Var.pr.cv + Var.resid.pr.cv))
+# [1] 56.02582
+```
+
+```{r }
+# Projecting the principal curve over the Principal Components
+proj.prcv.to.PC <- predict(zip.0.PC,prcv.0$s)
+
+plot(zip.0.PC$scores[,1:2],col=8)
+points(proj.prcv.to.PC[,1:2],col=2,pch=19)
+lines(proj.prcv.to.PC[prcv.0$ord,1:2],col=4,lwd=2)
+```
+
+```{r }
+op <-par(mfrow=c(2,3))
+plot(zip.0.PC$scores[,1:2],col=8)
+lines(proj.prcv.to.PC[prcv.0$ord,1:2],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,c(1,3)],col=8)
+lines(proj.prcv.to.PC[prcv.0$ord,c(1,3)],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,c(1,4)],col=8)
+lines(proj.prcv.to.PC[prcv.0$ord,c(1,4)],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,2:3],col=8)
+lines(proj.prcv.to.PC[prcv.0$ord,2:3],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,c(2,4)],col=8)
+lines(proj.prcv.to.PC[prcv.0$ord,c(2,4)],col=2,lwd=2)
+
+plot(zip.0.PC$scores[,3:4],col=8)
+lines(proj.prcv.to.PC[prcv.0$ord,3:4],col=2,lwd=2)
+par(op)
+```
+
+```{r eval=FALSE}
+library(rgl)
+plot3d(zip.0.PC$scores[,1:3],col=8)
+lines3d(proj.prcv.to.PC[prcv.0$ord,1:3],col=2,lwd=2)
+```
+
+```{r }
+# Computation of the Principal Curve step by step
+aux<-principal_curve(zip.0.PC$scores, trace=TRUE, plot_iterations = TRUE)
+```
