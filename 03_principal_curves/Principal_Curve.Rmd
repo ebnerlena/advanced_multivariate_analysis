@@ -14,14 +14,26 @@ Runnig the example of function `principal_curve` from library `princurve`:
 # install.packages("princurve")
 library(princurve)
 x <- runif(100,-1,1)
-x <- cbind(x, x ^ 2 + rnorm(100, sd = 0.1))
+x <- cbind(x, x ^ 2 + rnorm(100, sd = 0.1)) # x2 data with noise see plot(x, asp=1)
 fit <- principal_curve(x)
 
-plot(fit,xlim=range(x[,1]),ylim=range(x[,2]),asp=1)
+plot(fit,xlim=range(x[,1]),ylim=range(x[,2]),asp=1) # plot principal curve
 points(x,col=4)
 #lines(fit)
-points(fit)
-whiskers(x, fit$s)
+points(fit) # points of principal curve
+whiskers(x, fit$s) # visualize projection error of principal curve points and original points
+
+# fit returns an object with
+# s = result points of principal curve are stored in s
+# ord = allows as the lambda points according to their order: plot(fit$lambda[fit$ord]) -> score increases
+# lambda = for each point, its arclemgth from the beginning of the curve = score, lambdas are not sorted accoridng to their place on curve
+# dist = total sum of squared distances from the points to their projections on curve
+# converged = a boolean wether algorithm converged or not
+
+
+# plot(fit$lambda[fit$ord])
+#n <- 100
+#sqrt(fit$dist/(n-1))
 ```
 
 Projecting new points to the fitted principal curve:
@@ -55,6 +67,10 @@ fit.df.15 <- principal_curve(x,df=15)
 lines(fit.df.15,col=4)
 
 legend("top", c("Default smoothing","df=3","df=15"),col=c(1,2,4),lty=1)
+
+# df = smoothing parameter for curve when using smoothing spline
+# low values of df means low flexibility, large values means large flexibility
+# more flexibility means more ups and downs in curve
 ```
 
 The parameter `df` can be chosen by leave-one-out croos-validation or by $k$-fold cross-validation.
@@ -86,7 +102,7 @@ plot.zip <- function(x,use.first=FALSE){
 
 ```{r }
 # We analyze digits "0"
-zip.train <- read.table("zip.train")
+zip.train <- read.table("03_principal_curves/zip.train")
 I.0 <- (zip.train[,1]==0)
 zip.0 <- zip.train[I.0,]
 n<-dim(zip.0)[1]
@@ -94,6 +110,8 @@ n<-dim(zip.0)[1]
 # Principal Components
 zip.0.PC <- princomp(zip.0[,-1])
 pairs(zip.0.PC$scores[,1:4], pch=19,cex=.5)
+# we plot the first 4 principal components
+
 ```
 
 ```{r }
@@ -114,18 +132,22 @@ names(prcv.0)
 # s contains the projected points over the principal curve 
 dim(prcv.0$s)
 # [1] 1194  256
+
+# fit principal curve to matrix of 0, where we have removed the first column
+# 356 dimensions in data
 ```
 
 ```{r, fig.height=3, fig.width=15}
 # How does vary the projected individuals 
 # when moving along the principal curve?
 op <-par(mfrow=c(1,5))
-plot.zip(prcv.0$s[prcv.0$ord[1],],use.first = TRUE)    # lambda min
+plot.zip(prcv.0$s[prcv.0$ord[1],],use.first = TRUE)    # lambda min -> prcv.0$s[prcv.0$ord[1] = first row in projection points
 plot.zip(prcv.0$s[prcv.0$ord[n/4],],use.first = TRUE)  # lambda Q1
 plot.zip(prcv.0$s[prcv.0$ord[n/2],],use.first = TRUE)  # lambda median
 plot.zip(prcv.0$s[prcv.0$ord[3*n/4],],use.first = TRUE)# lambda Q2
 plot.zip(prcv.0$s[prcv.0$ord[n],],use.first = TRUE)    # lambda max
 par(op)
+# moving from large 0 to small 0 regarding width if you take a look at the pictures
 ```
 
 ```{r }
@@ -137,19 +159,20 @@ plot(prcv.0$lambda, zip.0.PC$scores[,2])
 plot(prcv.0$lambda, zip.0.PC$scores[,3])
 plot(prcv.0$lambda, zip.0.PC$scores[,4])
 par(op)
+# how scroes are related with principal components
 ```
 
 ```{r }
 # Percentage of variability explained by the principal curve
-Var.pr.cv <- var(prcv.0$lambda)
-Var.resid.pr.cv <- prcv.0$dist/(n-1)
+Var.pr.cv <- var(prcv.0$lambda) # variability of scores
+Var.resid.pr.cv <- prcv.0$dist/(n-1) # variability of residuals
 (pctg.VE.pr.cv <- 100*Var.pr.cv /(Var.pr.cv + Var.resid.pr.cv))
 # [1] 56.02582
 ```
 
 ```{r }
 # Projecting the principal curve over the Principal Components
-proj.prcv.to.PC <- predict(zip.0.PC,prcv.0$s)
+proj.prcv.to.PC <- predict(zip.0.PC,prcv.0$s) # project new points over principal components
 
 plot(zip.0.PC$scores[,1:2],col=8)
 points(proj.prcv.to.PC[,1:2],col=2,pch=19)
