@@ -1,0 +1,279 @@
+---
+title: "Example of Local MDS"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Portion of S shape curve, with radious R, of length 2*pi with noise
+
+t <- seq(-1.5*pi,1.5*pi,l=100)
+R<- 1
+n<-75
+sd.residuals <- .15
+```
+
+```{r, fig.asp=1}
+# windows(width=5,height=5)
+# pdf("ej_MDS_S.pdf",width=5,height=5,paper="special")
+my.seed <- 1
+set.seed(my.seed)
+A <- 2.6
+plot(0,0,type="n",xlab="",ylab="",axes=FALSE,
+#     main="Ilustraci?n Paso 1 de ISOMAP",
+     xlim=c(-1-2*sd.residuals,1+2*sd.residuals + A),
+     ylim=c(-2-2*sd.residuals,2+2*sd.residuals))
+
+# S plot with points
+y <- R*sign(t) - R*sign(t)*cos(t/R)
+x <- -R*sin(t/R)
+lines(x,y,col=2,lwd=2)
+rt <- sort(runif(n)*3*pi - 1.5*pi)
+eps <- rnorm(n)*sd.residuals
+ry <- R*sign(rt) - (R+eps)*sign(rt)*cos(rt/R)
+rx <- -(R+eps)*sin(rt/R)
+points(rx,ry,col=1,pch=19,cex=.6)
+XY <- cbind(rx,ry)
+#lines(x,y,col=2,lwd=2)
+
+# S plot with points and all the connections
+temp.seed <- .Random.seed
+for (i in 1:(n-1)){
+   for (j in (i+1):n){
+       if ( runif(1) <= .1 ) lines(A + rx[c(i,j)],ry[c(i,j)],col=3)
+   }
+}
+lines(A+x,y,col=2,lwd=2)
+points(A + rx,ry,col=1,pch=19,cex=.6)
+#dev.off()
+```
+
+```{r}
+# windows(width=10,height=4)
+# pdf("ej_MDS_S_res.pdf",width=10,height=4,paper="special")
+mdsXY <- stats::cmdscale(dist(XY),eig = TRUE)
+#op<-par(mfrow=c(1,2))
+plot(mdsXY$eig,type="b",main="MDS eigenvalues")
+```
+
+```{r}
+plot(mdsXY$points%*%diag(c(1,-1)),main="MDS configuration")
+#par(op)
+#dev.off()
+```
+
+```{r}
+#windows(width=7,height=5)
+# pdf("ej_localMDS_S.pdf",width=7,height=5,paper="special")
+set.seed(my.seed)
+A <- 2.6
+plot(0,0,type="n",xlab="",ylab="",axes=FALSE,
+     xlim=c(-1-2*sd.residuals,1+2*sd.residuals + 2*A),
+     ylim=c(-2-2*sd.residuals,2+2*sd.residuals))
+
+# S plot with points
+y <- R*sign(t) - R*sign(t)*cos(t/R)
+x <- -R*sin(t/R)
+lines(x,y,col=2,lwd=2)
+rt <- sort(runif(n)*3*pi - 1.5*pi)
+eps <- rnorm(n)*sd.residuals
+ry <- R*sign(rt) - (R+eps)*sign(rt)*cos(rt/R)
+rx <- -(R+eps)*sin(rt/R)
+points(rx,ry,col=1,pch=19,cex=.6)
+#lines(x,y,col=2,lwd=2)
+
+# S plot with points and all the connections
+temp.seed <- .Random.seed
+for (i in 1:(n-1)){
+  for (j in (i+1):n){
+    if ( runif(1) <= .1 ) lines(A + rx[c(i,j)],ry[c(i,j)],col=3)
+  }
+}
+lines(A+x,y,col=2,lwd=2)
+points(A + rx,ry,col=1,pch=19,cex=.6)
+
+# S plot with points, with "short" and "large" connections
+eps <- .75#.5
+set.seed(temp.seed)
+for (i in 1:(n-1)){
+  for (j in (i+1):n){
+    if ( runif(1) <= .1 ) lines(2*A + rx[c(i,j)],ry[c(i,j)],col=3)
+  }
+}
+for (i in 1:(n-1)){
+  for (j in (i+1):n){
+    if ( dist(XY[c(i,j),])<= eps )
+      lines(2*A + rx[c(i,j)],ry[c(i,j)],col=4,lwd=2)
+  }
+}
+lines(2*A+x,y,col=2,lwd=2)
+points(2*A + rx,ry,col=1,pch=19,cex=.6)
+text(2*A,2.35,"Short and large distances")
+#dev.off()
+```
+
+```{r}
+# Removing large distances: smacof with weights
+library(smacof)
+distXY <- dist(XY)
+n <- dim(XY)[1]
+
+# pdf("ej_weighted_MDS_S_res.pdf",width=12,height=6,paper="special")
+set.seed(my.seed)
+op<-par(mfrow=c(1,2))
+k <- 5
+w <- dissWeights(distXY, type = "knn", k = k)
+w <- w * (n * (n - 1) * 0.5/sum(w^2))^0.5
+res <- mds(distXY, weightmat = w, init = "random")
+plot(res$conf,main=paste("0-1 weighted MDS, K=",k))
+text(res$conf[,1],res$conf[,2],1:n,pos=3)
+
+k <- 10
+w <- dissWeights(distXY, type = "knn", k = k)
+w <- w * (n * (n - 1) * 0.5/sum(w^2))^0.5
+res <- mds(distXY, weightmat = w, init = "random")
+plot(res$conf,main=paste("0-1 weighted MDS, K=",k))
+text(res$conf[,1],res$conf[,2],1:n,pos=3)
+
+par(op)
+#dev.off()
+```
+
+```{r}
+# Local MDS. Implemented by Pedro Delicado, December 2020
+#
+# Objective function in Local MDS, eq (7) in Chen and Buja (2009)
+Stress.LocalMDS <- function(conf,n,dist.orig,k=5,tau=1){
+  require(smacof)
+  q<-length(conf)/n
+  mconf <- matrix(conf,nrow = n, byrow = FALSE) # configuration matrix
+  Eucl.dist <- dist(mconf)
+  w <- dissWeights(dist.orig, type = "knn", k = k)
+  w.1 <- (w==1)
+  card.N.k <- sum(w.1)
+  card.N.k.c <- n*(n-1)/2 - card.N.k
+  t <- (card.N.k/card.N.k.c)*median(dist.orig[w.1])*tau
+  return(sum((dist.orig[w.1]-Eucl.dist[w.1])^2) - t*sum(Eucl.dist[!w.1]))
+}
+```
+
+```{r}
+k <- 5
+tau <- .5
+q<-2 # 2-dim config
+conf0 <- as.numeric( stats::cmdscale(distXY,k=q) )
+localMDS.S.res <- optim(par=conf0, fn=Stress.LocalMDS, n=n,dist.orig=distXY,k=k,tau=tau,
+                        method ="BFGS", control = list(maxit=100))
+conf.localMDS.S.res <- matrix(localMDS.S.res$par, nrow = n, byrow = FALSE)
+```
+
+```{r,fig.height=5}
+# pdf("ej_Local_MDS_S_res_q_2.pdf",width=10,height=8,paper="special")
+par(mfrow=c(2,1))
+plot(conf.localMDS.S.res,asp=1, main=paste0("Local MDS, k=",k,", tau=",tau))
+text(conf.localMDS.S.res[,1],conf.localMDS.S.res[,2],1:n,pos=3)
+#
+plot(conf.localMDS.S.res[,1],rt)
+par(op)
+#dev.off()
+```
+
+It seems that $q=1$ can be enough:
+```{r}
+k <- 5
+tau <- .5
+q<-1 # 1-dim config
+conf0 <- as.numeric(stats::cmdscale(distXY,k=q))
+localMDS.S.res <- optim(par=conf0, fn=Stress.LocalMDS,
+                      n=n,dist.orig=distXY,k=k,tau=tau,
+                      method ="BFGS", 
+                      control = list(maxit=100))
+conf.localMDS.S.res <- matrix(localMDS.S.res$par, nrow = n, byrow = FALSE)
+```
+
+
+```{r,fig.height=5}
+# pdf("ej_Local_MDS_S_res_q_1.pdf",width=10,height=6,paper="special")
+par(mfrow=c(2,1))
+lambda <- conf.localMDS.S.res[,1] #1-dimemsional configuration
+plot(lambda,rep(0,n),#as=1,    
+     main=paste0("Local MDS, k=",k,", tau=",tau),
+     xlab=expression(paste(lambda, " (1-dimemsional configuration)")),
+     ylab="")
+text(lambda,rep(0,n),1:n,pos=3,cex=.4)
+#
+plot(lambda,rt,xlab=expression(lambda),ylab="t")
+par(op)
+#dev.off()
+```
+The 1-dimensional configuration $\lambda$ given by Local MDS is a good recovery of the true underline 1-dimensional generating variable `rt`. 
+
+The linear relation between $\lambda$ and `rt` is almost perfect.
+
+Now we take profit from the close relation between `rt` (unobserved) and $\lambda$ (obtained from Local MDS) to 
+estimate the 1-dimensional structure of the data.
+
+Observe that now $x_{1i}$, $x_{2i}$ and $\lambda_i$ are available for $i=1,\ldots, n$: 
+
+```{r,fig.height=4,fig.width=6}
+# pdf("ej_S_shape_data_3.pdf",height=5,width=6)
+op <- par(mfrow=c(2,2))
+plot(lambda,rt,xlab=expression(lambda),ylab="t")
+plot(0,0,type="n",axes=FALSE,xlab="",ylab="")
+plot(lambda,rx,xlab=expression(lambda),ylab=expression(x[1]))
+plot(lambda,ry,xlab=expression(lambda),ylab=expression(x[2]))
+par(op) 
+#dev.off()
+```
+
+Now we use smoothing techniques to fit nonlinear regression models for $x_1$ and $x_2$ over $\lambda$: 
+
+```{r,fig.height=8}
+#install.packages("mgcv") # To perform spline smoothing
+library(mgcv)
+smooth.x <- gam(rx~s(lambda))
+smooth.y <- gam(ry~s(lambda))
+
+s.x <- smooth.x$fitted.values
+s.y <- smooth.y$fitted.values
+```
+
+```{r}
+# pdf("ej_S_shape_data_smooth.pdf",height=3,width=7)
+op <- par(mfrow=c(1,2))
+plot(lambda,rx,col=8, pch=19, cex=1, 
+#     main=expression(paste(x[1]," versus ",lambda)), 
+     main=expression(hat(rho)[1](lambda)), 
+     xlab=expression(lambda), ylab=expression(x[1]))
+lines(lambda, s.x, col=1, lwd=2)
+plot(lambda,ry,col=8, pch=19, cex=1, 
+#     main=expression(paste(x[2]," versus ",lambda)), 
+     main=expression(hat(rho)[2](lambda)), 
+     xlab=expression(lambda), ylab=expression(x[2]))
+lines(lambda, s.y, col=1, lwd=2)
+par(op)
+#dev.off()
+```
+We add the nonlinear curve fitted by Local MDS to the 2-dimensional representation of the original data:
+
+```{r}
+# pdf("ej_S_shape_data_smooth_S.pdf",width=5,height=5,paper="special")
+A <- 2.6
+plot(0,0,type="n",xlab="",ylab="",axes=FALSE, asp=1,
+     xlim=c(-1-2*sd.residuals,1+2*sd.residuals + 2*A),
+     ylim=c(-2-2*sd.residuals,2+2*sd.residuals))
+
+# S plot with points
+lines(x,y,col=2,lwd=2)
+points(rx,ry,col=8,pch=19,cex=.8)
+lines(s.x,s.y,col=1,lwd=2)
+
+legend(.75*A,.75*A,c("Observed points","True generating curve", "Estimated curve"),
+       col=c(8,2,1), pch=c(19,NA,NA), lwd=c(NA,2,2), bty="n", cex=.8)
+#dev.off()
+```
