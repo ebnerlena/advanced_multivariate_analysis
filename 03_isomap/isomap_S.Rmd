@@ -1,0 +1,135 @@
+---
+title: "Example of ISOAMP algorithm"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Portion of S shape curve, with radious R, of length 2*pi with noise
+
+t <- seq(-1.5*pi,1.5*pi,l=100)
+R<- 1
+n<-75
+sd.residuals <- .15
+```
+
+```{r fig.height=5, fig.width=7}
+#windows(width=7,height=5)
+set.seed(1)
+A <- 2.6
+plot(0,0,type="n",xlab="",ylab="",axes=FALSE,
+     #     main="Ilustracion Paso 1 de ISOMAP",
+     xlim=c(-1-2*sd.residuals,1+2*sd.residuals + 2*A),
+     ylim=c(-2-2*sd.residuals,2+2*sd.residuals))
+
+# S plot with points
+y <- R*sign(t) - R*sign(t)*cos(t/R)
+x <- -R*sin(t/R)
+lines(x,y,col=2,lwd=2)
+rt <- sort(runif(n)*3*pi - 1.5*pi)
+residuals <- rnorm(n)*sd.residuals
+ry <- R*sign(rt) - (R+residuals)*sign(rt)*cos(rt/R)
+rx <- -(R+residuals)*sin(rt/R)
+points(rx,ry,col=1,pch=19,cex=.6)
+#lines(x,y,col=2,lwd=2)
+
+# S plot with points and all the connections
+temp.seed <- .Random.seed
+for (i in 1:(n-1)){
+  for (j in (i+1):n){
+    if ( runif(1) <= .1 ) lines(A + rx[c(i,j)],ry[c(i,j)],col=3)
+  }
+}
+lines(A+x,y,col=2,lwd=2)
+points(A + rx,ry,col=1,pch=19,cex=.6)
+
+# S plot with points, with connections <= eps
+eps <- .5
+XY <- cbind(rx,ry)
+lines(2*A+x,y,col=2,lwd=2)
+for (i in 1:(n-1)){
+   for (j in (i+1):n){
+       if ( dist(XY[c(i,j),])<= eps )lines(2*A + rx[c(i,j)],ry[c(i,j)],col=3)
+   }
+}
+points(2*A + rx,ry,col=1,pch=19,cex=.6)
+text(2*A,2.35,"epsilon=0.5")
+#dev.off()
+```
+
+```{r}
+library(vegan)
+ismp <- isomap(dist(XY),eps=eps)
+```
+
+```{r fig.height=3, fig.width=9}
+# windows(width=9,height=3)
+# pdf("ej_isomap_S_res_Engl.pdf",width=9,height=3,paper="special")
+aux.plot <- plot(ismp,n.col=3,main="Output of ISOMAP Algorithm")
+points(aux.plot,"sites",pch=19,cex=.6)
+#dev.off()
+```
+
+
+It seems that $q=1$ can be enough:
+```{r}
+q<-1 # 1-dim config
+ismp.1 <- isomap(dist(XY),eps=eps, ndim=q)
+
+lambda <- ismp.1$points[,1] # 1-dimemsional configuration
+plot(lambda,rep(0,n),#as=1,    
+     xlab="lambda (1-dimemsional configuration)",
+     ylab="")
+if (ismp.1$criterion=="epsilon"){
+  title(main=paste0("ISOMAP, epsilon=",eps))
+}else{
+  title(main=paste0("ISOMAP, k=",k))
+}
+text(lambda,rep(0,n),1:n,pos=3,cex=.4)
+```
+
+The 1-dimensional configuration $\lambda$ given by ISOMAP is a good recovery of the true underline 1-dimensional generating variable `rt`. The linear relation between $\lambda$ and `rt` is almost perfect:
+
+```{r,fig.asp=1}
+plot(lambda,rt, as=1)
+```
+
+Now we plot the 1-dimensional structure of the data obtained from ISOMAP using smoothing techniques:
+
+```{r,fig.height=8}
+#install.packages("mgcv") # To perform spline smoothing
+library(mgcv)
+smooth.x <- gam(rx~s(lambda))
+smooth.y <- gam(ry~s(lambda))
+
+s.x <- smooth.x$fitted.values
+s.y <- smooth.y$fitted.values
+
+op <- par(mfrow=c(2,1))
+plot(lambda,rx,col=8, pch=19, cex=1, main="x versus lambda")
+lines(lambda, s.x, col=1, lwd=2)
+plot(lambda,ry,col=8, pch=19, cex=1, main="y versus lambda")
+lines(lambda, s.y, col=1, lwd=2)
+par(op)
+```
+We add the nonlinear curve fitted by ISOMAP to the 2-dimensional representation of the original data:
+
+```{r}
+A <- 2.6
+plot(0,0,type="n",xlab="",ylab="",axes=FALSE,
+     xlim=c(-1-2*sd.residuals,1+2*sd.residuals + 2*A),
+     ylim=c(-2-2*sd.residuals,2+2*sd.residuals))
+
+# S plot with points
+lines(x,y,col=2,lwd=2)
+points(rx,ry,col=8,pch=19,cex=.8)
+lines(s.x,s.y,col=1,lwd=2)
+
+legend(.75*A,.75*A,c("Observed points","True generating curve", "Estimated curve"),
+       col=c(8,2,1), pch=c(19,NA,NA), lwd=c(NA,2,2), bty="n", cex=.8)
+```

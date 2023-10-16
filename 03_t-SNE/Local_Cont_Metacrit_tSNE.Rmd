@@ -1,0 +1,208 @@
+---
+title: 'Choosing the tuning parameters in t-SNE'
+subtitle: 'Local Continuity Meta-criteria'
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval=TRUE, warning = FALSE, 
+                      message = FALSE, comment = FALSE, error = FALSE)
+#Put echo = FALSE, eval=FALSE for having just the question statements
+#Put echo = TRUE, eval=TRUE for obtaining the output
+```
+
+## Local Continuity Meta-criteria
+
+Chen and Buja (2009, JASA, Section 3) propose a criteria for tuning parameter selection in local-MDS: The *Local Continuity Meta-criteria* (or *LC meta-criteria*) that is also useful for other dimensionality reduction methods.
+
+Following the notation used in the classes slides, for a neighborhood size $K'$ and for the $i$-th object $\mathcal{O}_i$ in the data set, let $N_{K'}(i)$ be the number of cases that simultaneously are between the $K'$-nearest neighbors of $\mathcal{O}_i$ in the high-dimensional space (distances here are $\delta_{ij}$), and between the $K'$-nearest neighbors of the mapped point $y_i$ in the low-dimensional configuration (distances here are $\|y_i-y_j\|$). Then define
+\[
+N_{K'}=\frac{1}{n}\sum_{i=1}^n N_{K'}(i) 
+\]
+as a global measure of overlapping between $K'$-nearest neighbors in both spaces, that could be called *local continuity*.
+In order to normalize, 
+\[
+M_{K'}=\frac{1}{K'} N_{K'}
+\]
+is used instead of $N_{K'}$ ($M_{K'}$ is always in $[0,1]$). Even better is using the *adjusted LC meta-criteria* defined as
+\[
+M_{K'}^{adj}=M_{K'} - \frac{K'}{n-1},
+\]
+because $K'/(n-1)$ is the expected value of $M_{K'}$ under complete absence of association between the original data and the low-dimensional configuration. 
+
+The following function computes $M_{K'}^{adj}$ as a function of two distance matrices between points (one being computed in the high-dimensional space, an the other being the Euclidean distance matrix in the low-dimensional configuration) and the value $K'$.
+
+```{r}
+LCMC <- function(D1,D2,Kp){
+  D1 <- as.matrix(D1)
+  D2 <- as.matrix(D2)
+  n <- dim(D1)[1]
+  N.Kp.i <- numeric(n)
+  for (i in 1:n){
+    N1.i <- sort.int(D1[i,],index.return = TRUE)$ix[1:Kp]
+    N2.i <- sort.int(D2[i,],index.return = TRUE)$ix[1:Kp]
+    N.Kp.i[i] <- length(intersect(N1.i, N2.i))
+  }
+  N.Kp<-mean(N.Kp.i)
+  M.Kp.adj <- N.Kp/Kp - Kp/(n-1)
+  
+  return(list(N.Kp.i=N.Kp.i, M.Kp.adj=M.Kp.adj))
+}
+```
+
+## Generating the dataset
+
+We are working with a 3-dimensional data set generated around a 1-dimensional S-shape curve. We use the following code to generate the data.
+
+```{r, echo=TRUE, eval=TRUE}
+t <- seq(-1.5*pi,1.5*pi,l=100)
+R<- 1
+n<-75
+sd.eps <- .15
+
+set.seed(1)
+y <- R*sign(t) - R*sign(t)*cos(t/R)
+x <- -R*sin(t/R)
+z <- (y/(2*R))^2
+rt <- sort(runif(n)*3*pi - 1.5*pi)
+eps <- rnorm(n)*sd.eps
+ry <- R*sign(rt) - (R+eps)*sign(rt)*cos(rt/R)
+rx <- -(R+eps)*sin(rt/R)
+rz <- (ry/(2*R))^2 + runif(n,min=-2*sd.eps,max=2*sd.eps)
+XYZ <- cbind(rx,ry,rz)
+
+require(plot3D)
+lines3D(x,y,z,colvar = NULL, 
+         phi = 20, theta = 60, r =sqrt(3), d =3, scale=FALSE,
+         col=2,lwd=4,as=1,
+         xlim=range(rx),ylim=range(ry),zlim=range(rz))
+points3D(rx,ry,rz,col=4,pch=19,cex=.6,add=TRUE)
+```
+
+## Choosing the tuning parameters in t-SNE
+
+t-SNE depends on two tuning parameters:
+
+* `perplexity`, the effective number of neighbors for each case.
+* $q$, the dimension of the desired low-dimensional configuration. 
+
+To fit t-SNE, use one of the the R functions `tsne::tsne` or 
+`Rtsne::Rtsne`.
+
+In `tsne::tsne`, the parameters are called `perplexity` and `k` respectively. Moreover,  use the default `epoch_callback = NULL` for not calling any callback function. Moreover,  use `max_iter = 1000`, `epoch = 1000`.
+
+In `Rtsne::Rtsne`, the parameters are called `perplexity` and `dims` respectively. Moreover,  use `theta=0`, `pca=FALSE`, `max_iter = 1000`.
+
+In this assignment, fix $q=1$ and use the function `Rtsne::Rtsne`.
+
+
+**Choosing the parameter `perplexity` maximizing the Local Continuity Meta-criteria.** 
+We use $K'=10$ and restrict the search of `perplexity` to `seq(5,25,by=1)`.
+
+
+```{r}
+require(Rtsne)
+set.seed(4444) # Other seeds give not so nice results: try, for instance (654321) or (1234)
+
+D1 <- dist(XYZ)
+q <- 1
+Kp <- 10
+
+perplexity <- seq(5,20,by=1) #seq(9,21,by=3)
+
+LC <- numeric(length(perplexity))
+Rtsne.k <- vector("list",length(perplexity))
+
+for (i in 1:length(perplexity)){
+    Rtsne.k[[i]] <- Rtsne(D1, perplexity=perplexity[i], dims=q,
+                          theta=0, pca=FALSE, max_iter = 1000)
+    D2.k <- dist(Rtsne.k[[i]]$Y)
+    LC[i] <- LCMC(D1,D2.k,Kp)$M.Kp.adj
+    #print(c(i,j,LC[i,j]))
+}
+
+i.max <- which.max(LC)
+perplexity.max <- perplexity[i.max[1]] 
+Rtsne.max <- Rtsne.k[[i.max]]
+
+plot(perplexity,LC, main=paste0("perplexity.max=",perplexity.max))
+abline(v=perplexity[i.max],col=2)
+```
+
+**Graphical representation of the t-SNE output.**
+For the optimal `perplexity`, the output of the `Rtsne::Rtsne` is a list of elements, one of them called `Y` contains the desired $q$-dimensional configuration, that is, it is a $n\times q$ matrix (in our case with $q=1$).
+We have called   `Rtsne.max` to this output. We can represent it graphically using the following instruction:
+
+```{r}
+pairs(cbind(XYZ,rt,tSNE=Rtsne.max$Y[,1]))
+```
+
+
+
+Alternative graphical representations of the t-SNE fit, `Rtsne.max`, can be done using smoothing techniques:
+
+```{r, fig.height=2,fig.width=7}
+#install.packages("mgcv") # To perform spline smoothing
+library(mgcv)
+
+df.xyzts <- as.data.frame(cbind(XYZ,rt,lambda=Rtsne.max$Y[,1]))
+names(df.xyzts)
+#[1] "rx" "ry" "rz" "rt" "s(lambda)" 
+
+smooth.x <- gam(rx~s(lambda), data=df.xyzts)
+smooth.y <- gam(ry~s(lambda), data=df.xyzts)
+smooth.z <- gam(rz~s(lambda), data=df.xyzts)
+
+summary(smooth.x)
+summary(smooth.y)
+summary(smooth.z)
+
+op <- par(mfrow=c(1,3))
+plot(smooth.x, residuals=TRUE, shade=TRUE, cex=4, main="x versus lambda")
+plot(smooth.y, residuals=TRUE, shade=TRUE, cex=4, main="y versus lambda")
+plot(smooth.z, residuals=TRUE, shade=TRUE, cex=4, main="z versus lambda")
+par(op)
+```
+Now we do similar plots by ourselves:
+
+```{r, fig.height=2,fig.width=7} 
+s.x <- smooth.x$fitted.values
+s.y <- smooth.y$fitted.values
+s.z <- smooth.z$fitted.values
+lambda <- Rtsne.max$Y[,1]
+
+ord.lambda <- sort(lambda,index.return=TRUE)$ix
+
+op <- par(mfrow=c(1,3))
+plot(lambda, rx, col=8, pch=19, cex=1, main="x versus lambda")
+lines(lambda[ord.lambda], s.x[ord.lambda], col=1, lwd=2)
+plot(lambda, ry, col=8, pch=19, cex=1, main="y versus lambda")
+lines(lambda[ord.lambda], s.y[ord.lambda], col=1, lwd=2)
+plot(lambda, rz, col=8, pch=19, cex=1, main="z versus lambda")
+lines(lambda[ord.lambda], s.z[ord.lambda], col=1, lwd=2)
+par(op)
+```
+
+We can add the nonlinear curve fitted by t-SNE to the 3-dimensional representation of the original data:
+
+```{r}
+require(plot3D)
+lines3D(x,y,z,colvar = NULL, 
+         phi = 20, theta = 60, r =sqrt(3), d =3, scale=FALSE,
+         col=2,lwd=4,as=1,
+         xlim=range(rx),ylim=range(ry),zlim=range(rz))
+points3D(rx,ry,rz,col=4,pch=19,cex=.6,add=TRUE)
+lines3D(s.x[ord.lambda],s.y[ord.lambda],s.z[ord.lambda], col=1, lwd=4, add=TRUE)
+```
+
+And, finally, here you have a interactive 3-dimensional representation:
+```{r}
+require(rgl)
+points3d(rx,ry,rz,col=4,size=10)
+lines3d(x,y,z, col=2,lwd=4)
+lines3d(s.x[ord.lambda],s.y[ord.lambda],s.z[ord.lambda], col=1, lwd=4)
+```

@@ -1,0 +1,247 @@
+---
+title: "t-SNE examples"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d de %B de %Y')`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## The *Crowding Problem*
+
+```{r,fig.asp=1}
+dev.set(1234)
+p<- 10
+n <- 1000000
+
+X1 <- matrix(runif(n*p,min=-1,max=1),ncol=p) # uniform points in [-1,1]^p
+normX1 <- apply(X1*X1,1,sum)
+X <- X1[normX1<=1,] # uniform points in B(0,1) in dimension p
+normX <- normX1[normX1<=1]
+
+dim(X)[1]
+dim(X)[1]/n
+sum(normX<=.5)
+
+plot(X[,1:2],pch=20-(normX<=.5),col=2+6*(normX>.5))
+```
+
+MDS:
+
+```{r}
+library(smacof)
+dX <- dist(X)
+mdsX <- mds(dX,ndim=2)
+```
+
+```{r,fig.asp=1}
+# pdf("CrowdingProblem_mds.pdf",width=8,height=8)
+plot(mdsX$conf,pch=20-(normX<=.5),col=2+6*(normX>.5))
+# dev.off()
+```
+
+
+## Using the library `tsne`
+
+```{r}
+# install.packages("tsne")
+library(tsne)
+#?tsne
+```
+
+### Iris data example (from `help(tsne::tsne)`)
+```{r}
+colors = rainbow(length(unique(iris$Species)))
+names(colors) = unique(iris$Species)
+ecb = function(x,y){ plot(x,t='n'); text(x,labels=iris$Species, col=colors[iris$Species]) }
+tsne_iris = tsne(iris[,1:4], epoch_callback = ecb, perplexity=50)
+```
+
+Comparing with PCA:
+```{r}
+# compare to PCA
+pca_iris = princomp(iris[,1:4])$scores[,1:2]
+plot(pca_iris, t='n')
+text(pca_iris, labels=iris$Species,col=colors[iris$Species])
+## End of Iris data example (from help(tsne::tsne))
+```
+
+### Working with Morse codes
+Reading the data:
+```{r,eval=FALSE}
+#install.packages("xgobi")
+library(xgobi)
+data(morsecodes)
+# ?morsecodes
+morsecodes.row
+
+# computing the generalized Levenshtein (edit) distance between letters morse code
+ad.mc <- adist(morsecodes.row[,2])
+```
+
+To be used during `tsne::tsne`: `epoch_callback` should be a callback function used after each epoch (an epoch here means a set number of iterations).
+
+```{r,eval=FALSE}
+ecb.morse <- function(X,...){  
+  pairs(X,
+        upper.panel=function(x,y,...){text(x,y,morsecodes.row[,1],...)},
+        lower.panel=function(x,y,...){text(x,y,morsecodes.row[,2],cex=2,...)},
+        col=nchar(morsecodes.row[,2])
+  )
+}
+```
+
+```{r,eval=FALSE}
+tsne_morse <- tsne(ad.mc, k=3, initial_dims=6, epoch_callback = ecb.morse, 
+                   max_iter= 5000, epoch=500, perplexity=3)
+## End of Working with Morse codes
+```
+
+## Using the library `Rtsne`
+```{r}
+# install.packages("Rtsne")
+library(Rtsne)
+#?Rtsne
+```
+
+### Iris data example (from `help(Rtsne::Rtsne)`)
+```{r}
+iris_unique <- unique(iris) # Remove duplicates
+iris_matrix <- as.matrix(iris_unique[,1:4])
+
+# Set a seed if you want reproducible results
+set.seed(42)
+tsne_out <- Rtsne(iris_matrix,pca=FALSE,perplexity=30,theta=0.0) # Run TSNE
+
+# Show the objects in the 2D tsne representation
+plot(tsne_out$Y,col=iris_unique$Species, asp=1)
+```
+
+```{r}
+# data.frame as input
+tsne_out <- Rtsne(iris_unique,pca=FALSE, theta=0.0)
+plot(tsne_out$Y,col=iris_unique$Species, asp=1)
+```
+
+```{r}
+# Using a dist object
+set.seed(42)
+tsne_out <- Rtsne(dist(normalize_input(iris_matrix)), theta=0.0)
+plot(tsne_out$Y,col=iris_unique$Species, asp=1)
+```
+
+```{r}
+set.seed(42)
+tsne_out <- Rtsne(as.matrix(dist(normalize_input(iris_matrix))),theta=0.0,is_distance=TRUE)
+plot(tsne_out$Y,col=iris_unique$Species, asp=1)
+```
+
+```{r}
+# Supplying starting positions (example: continue from earlier embedding)
+set.seed(42)
+tsne_part1 <- Rtsne(iris_unique[,1:4], theta=0.0, pca=FALSE, max_iter=350)
+tsne_part2 <- Rtsne(iris_unique[,1:4], theta=0.0, pca=FALSE, max_iter=650, Y_init=tsne_part1$Y)
+plot(tsne_part2$Y,col=iris_unique$Species, asp=1)
+```
+
+```{r}
+# Fast PCA and multicore
+tsne_out <- Rtsne(iris_matrix, theta=0.1, partial_pca = TRUE, initial_dims=3)
+plot(tsne_out$Y,col=iris_unique$Species, asp=1)
+```
+
+```{r}
+tsne_out <- Rtsne(iris_matrix, theta=0.1, num_threads = 2)
+plot(tsne_out$Y,col=iris_unique$Species, asp=1)
+## End of Iris data example (from help(Rtsne::Rtsne))
+```
+
+### Working with Morse codes
+```{r,eval=FALSE}
+### Reading the data
+#install.packages("xgobi")
+library(xgobi)
+data(morsecodes)
+# ?morsecodes
+morsecodes.row
+# computing the generalized Levenshtein (edit) distance between letters morse code
+ad.mc <- adist(morsecodes.row[,2])
+```
+
+```{r,eval=FALSE}
+set.seed(42)
+Rtsne_morse <- Rtsne(ad.mc, dims=3, initial_dims=6, max_iter= 5000, perplexity=3,theta=0.0)
+pairs(Rtsne_morse$Y,
+      upper.panel=function(x,y,...){text(x,y,morsecodes.row[,1],...)},
+      lower.panel=function(x,y,...){text(x,y,morsecodes.row[,2],cex=2,...)},
+      col=nchar(morsecodes.row[,2])
+)
+## End of Working with Morse codes
+```
+
+### The Crowding Problem and tSNE:
+```{r}
+Rtsne_X <- Rtsne(dX, dims=2,initial_dims=10, max_iter= 500,
+                 perplexity=5,theta=0.0)
+```
+
+```{r, fig.asp=1}
+# pdf("CrowdingProblem_tSNE.pdf",width=8,height=8)
+plot(Rtsne_X$Y,pch=20-(normX<=.5),col=2+6*(normX>.5))
+#dev.off()
+```
+
+## ZIP numbers, from the book of Hastie et al. (2009)
+```{r}
+### ZIP numbers, from the book of Hastie et al.
+#
+# Data originally in
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.train.gz
+# https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.test.gz
+#
+zip.train <- read.table("zip.train")
+dim(zip.train)
+n<-dim(zip.train)[1]
+```
+
+### PCA
+```{r}
+# PCA
+zip.PC <- princomp(zip.train[,-1])
+#summary(zip.PC)
+```
+
+```{r}
+plot(zip.PC$scores[,1:2],pch=c(15,17,19)[(zip.train[,1]%%3)+1],cex=.75,col=zip.train[,1]+1)
+legend("bottomright",legend=0:9,pch=c(15,17,19)[((0:9)%%3)+1],cex=.75,col=(0:9)+1)
+```
+
+```{r}
+plot(zip.PC$scores[,c(1,3)],pch=c(15,17,19)[(zip.train[,1]%%3)+1],cex=.75,col=zip.train[,1]+1)
+legend("bottomright",legend=0:9,pch=c(15,17,19)[((0:9)%%3)+1],cex=.75,col=(0:9)+1)
+```
+
+```{r}
+pairs(zip.PC$scores[,1:4], pch=c(15,17,19)[(zip.train[,1]%%3)+1],cex=.75,col=zip.train[,1]+1)
+```
+
+## t-SNE
+```{r}
+# t-SNE
+zip.Rtsne <- Rtsne(zip.train[,-1], dims=3, initial_dims=100, 
+                   max_iter= 1000, perplexity=50,theta=0.5)
+
+plot(zip.Rtsne$Y[,1:2],pch=c(15,17,19)[(zip.train[,1]%%3)+1],cex=.75,col=zip.train[,1]+1)
+legend("bottomright",legend=0:9,pch=c(15,17,19)[((0:9)%%3)+1],cex=.75,col=(0:9)+1)
+```
+
+```{r}
+plot(zip.Rtsne$Y[,c(1,3)],pch=c(15,17,19)[(zip.train[,1]%%3)+1],cex=.75,col=zip.train[,1]+1)
+legend("bottomright",legend=0:9,pch=c(15,17,19)[((0:9)%%3)+1],cex=.75,col=(0:9)+1)
+```
+
+```{r}
+pairs(zip.Rtsne$Y[,1:3], pch=c(15,17,19)[(zip.train[,1]%%3)+1],cex=.75,col=zip.train[,1]+1)
+```
