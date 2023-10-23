@@ -1,0 +1,469 @@
+---
+title: "Local linear regression (with animation)"
+author: "Pedro Delicado"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Write your own local linear regression function
+
+Consider the function $m(t)= \sin(2\pi t)$, $t \in [0,1]$.
+<!-- If you want a Figure with caption in the pdf output, use that as the starting line fo the chunk:--->
+<!-- ```{r true-function, fig.cap="True function, $y = m(x) = \\sin(2 \\pi x)$"}-->
+
+```{r, echo=FALSE, eval=FALSE}
+tg <- seq(0,1,by=.01) # Regular grid of values t
+nt <- length(tg)      # number of points t in the regular grid
+mtg <- sin(2*pi*tg)   # m(tg), true regression function
+plot(tg,mtg,type="l")
+```
+
+Generate data according to the regression model
+\[
+y = m(x) + e
+\]
+with $e\sim N(0,\sigma^2=0.5^2)$.
+
+```{r}
+set.seed(123) # for reproducibility (123 produces nice plots)
+tg <- seq(0,1,by=.01) # Regular grid of values t
+nt <- length(tg)      # number of points t in the regular grid
+mtg <- sin(2*pi*tg)   # m(tg), true regression 
+# generating data
+n <- 75       # number of observed data
+sigma.e <- .5 # standard deviation of the random noise
+x <- runif(n)
+mx <- sin(2*pi*x)
+y <- mx + rnorm(n,0,sigma.e)
+
+plot(x,y)
+lines(tg,mtg)
+```
+
+Local linear estimation of $m(t)$ for a grid of points $t_j\in[0,1]$ using different values of bandwidth $h$:
+<!--- ,fig.width=14,fig.height=8--->
+```{r,animation.hook='gifski',interval=.1}
+step <- .01
+vt <- seq(0,1,by=step)
+
+h <- .075
+
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  # points(x,y,pch=19,cex=w.t/2)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+}
+
+# Estimating $m(t)$, for all `t` in `tg`.
+hat.mtg <- numeric(nt)
+for (i in 1:nt){
+  t <- tg[i]
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mtg[i] <- lm.t$coefficients[1]
+}
+
+# Repeating the animated plot, but now adding the estimated function 
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+  lines(tg[tg<=t],hat.mtg[tg<=t],col=2,lwd=3)
+}
+
+```
+
+
+```{r,animation.hook='gifski',interval=.1}
+h <- .025 
+
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  # points(x,y,pch=19,cex=w.t/2)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+}
+
+# Estimating $m(t)$, for all `t` in `tg`.
+hat.mtg <- numeric(nt)
+for (i in 1:nt){
+  t <- tg[i]
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mtg[i] <- lm.t$coefficients[1]
+}
+
+# Repeating the animated plot, but now adding the estimated function 
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+  lines(tg[tg<=t],hat.mtg[tg<=t],col=2,lwd=3)
+}
+```
+
+```{r,animation.hook='gifski',interval=.1}
+h <- .2 
+
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  # points(x,y,pch=19,cex=w.t/2)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+}
+
+# Estimating $m(t)$, for all `t` in `tg`.
+hat.mtg <- numeric(nt)
+for (i in 1:nt){
+  t <- tg[i]
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mtg[i] <- lm.t$coefficients[1]
+}
+
+# Repeating the animated plot, but now adding the estimated function 
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+  lines(tg[tg<=t],hat.mtg[tg<=t],col=2,lwd=3)
+}
+```
+
+```{r,animation.hook='gifski',interval=.1}
+h <- .5 
+
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  # points(x,y,pch=19,cex=w.t/2)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+}
+
+# Estimating $m(t)$, for all `t` in `tg`.
+hat.mtg <- numeric(nt)
+for (i in 1:nt){
+  t <- tg[i]
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mtg[i] <- lm.t$coefficients[1]
+}
+
+# Repeating the animated plot, but now adding the estimated function 
+for (t in vt){
+  plot(x,y, main=paste("Local linear regression, h=",h))
+  lines(tg,mtg)
+  abline(v=t,col="grey")
+  # Defining the weigths by a Gaussian kernel
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+  # Adding to the graphic the kernel function, evaluated at tg
+  abline(h=min(y),col="grey")
+  cte=.2 # We define this constant just to have a nice graphic
+  lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+  sign_h <- 2*as.numeric(t+h<=1)-1
+  lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                   min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+  # Fiting the local linear regression around t
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mt <- lm.t$coefficients[1]
+  # Plotting the local linear fit around t
+  t.minus.h <- t-2*h
+  t.plus.h <- t+2*h
+  lines( c(t.minus.h, t.plus.h), 
+         c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+           lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+  # Marking the estimated value of m(t)
+  points(t,hat.mt,pch=19,cex=2,col="red")
+  lines(tg[tg<=t],hat.mtg[tg<=t],col=2,lwd=3)
+}
+```
+
+
+```{r,animation.hook='gifski',interval=.1,fig.width=8,fig.height=7}
+vh <- c(.025, .075, .2, .5)
+op<-par(mfrow=c(2,2))
+
+for (t in vt){
+  for (h in vh){
+    plot(x,y, main=paste("Local linear regression, h=",h))
+    lines(tg,mtg)
+    abline(v=t,col="grey")
+    # Defining the weigths by a Gaussian kernel
+    x.t <- x-t
+    w.t <- dnorm(x.t,mean=0,sd=h)
+    points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+    # Adding to the graphic the kernel function, evaluated at tg
+    abline(h=min(y),col="grey")
+    cte=.2 # We define this constant just to have a nice graphic
+    lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+    sign_h <- 2*as.numeric(t+h<=1)-1
+    lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                     min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+    # Fiting the local linear regression around t
+    # points(x,y,pch=19,cex=w.t/2)
+    lm.t <- lm(y~x.t,weights=w.t)
+    hat.mt <- lm.t$coefficients[1]
+    # Plotting the local linear fit around t
+    t.minus.h <- t-2*h
+    t.plus.h <- t+2*h
+    lines( c(t.minus.h, t.plus.h), 
+           c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+             lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+    # Marking the estimated value of m(t)
+    points(t,hat.mt,pch=19,cex=2,col="red")
+  }
+}
+
+# Repeating the animated plot, but now adding the estimated function 
+for(t in vt){
+  for (h in vh){
+    plot(x,y, main=paste("Local linear regression, h=",h))
+    lines(tg,mtg)
+    abline(v=t,col="grey")
+    # Defining the weights by a Gaussian kernel
+    x.t <- x-t
+    w.t <- dnorm(x.t,mean=0,sd=h)
+    points(x,y,pch=19,cex=2*w.t/(dnorm(0)/h),col="gray")
+    # Adding to the graphic the kernel function, evaluated at tg
+    abline(h=min(y),col="grey")
+    cte=.2 # We define this constant just to have a nice graphic
+    lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+    sign_h <- 2*as.numeric(t+h<=1)-1
+    lines(c(t,t+sign_h*h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                     min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+    # Fiting the local linear regression around t
+    lm.t <- lm(y~x.t,weights=w.t)
+    hat.mt <- lm.t$coefficients[1]
+    # Plotting the local linear fit around t
+    t.minus.h <- t-2*h
+    t.plus.h <- t+2*h
+    lines( c(t.minus.h, t.plus.h), 
+           c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+             lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+    # Marking the estimated value of m(t)
+    points(t,hat.mt,pch=19,cex=2,col="red")
+  
+    # Estimating $m(t)$, for all `t` in `tg`.
+    hat.mtg <- numeric(nt)
+    for (i in 1:nt){
+      x.t <- x-tg[i]
+      w.t <- dnorm(x.t,mean=0,sd=h)
+      lm.t <- lm(y~x.t,weights=w.t)
+      hat.mtg[i] <- lm.t$coefficients[1]
+    }
+    lines(tg[tg<=t],hat.mtg[tg<=t],col=2,lwd=3)
+  }
+}
+par(op)
+```
+
+
+
+
+```{r}
+# Writing a local linear regression function
+loc.lin.reg <- function(x, y, h=range(x)/10, tg=seq(min(x),max(x),length=51)){
+  nt <- length(tg)
+  mt <- numeric(nt)
+  for (i in 1:nt){
+    t <- tg[i]
+    w.t <- dnorm(x-t,mean=0,sd=h)
+    x.t <- x-t
+    lm.t <- lm(y~x.t,weights=w.t)
+    mt[i] <- lm.t$coefficients[1]
+  }
+  return(list(mt=mt,tg=tg,h=h))
+}
+```
+
+```{r,fig.width=5,fig.height=4}
+vh <- c(.025, .075, .2, .5)
+llr1 <- loc.lin.reg(x=x,y=y, h=vh[1], tg=tg)
+llr2 <- loc.lin.reg(x=x,y=y, h=vh[2], tg=tg)
+llr3 <- loc.lin.reg(x=x,y=y, h=vh[3], tg=tg)
+llr4 <- loc.lin.reg(x=x,y=y, h=vh[4], tg=tg)
+plot(x,y)
+lines(tg,mtg)
+lines(tg,llr1$mt,col=2,lwd=2)
+lines(tg,llr2$mt,col=3,lwd=2)
+lines(tg,llr3$mt,col=4,lwd=2)
+lines(tg,llr4$mt,col=6,lwd=2)
+legend("topright",c(paste("h=",vh[1],sep=''),
+                    paste("h=",vh[2],sep=''),
+                    paste("h=",vh[3],sep=''),
+                    paste("h=",vh[4],sep='')),
+       col=c(2,3,4,6),lty=1,lwd=2, cex=.75)
+```

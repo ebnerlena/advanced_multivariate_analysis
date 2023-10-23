@@ -1,0 +1,206 @@
+---
+title: "Practice. Local linear regression"
+author: "Pedro Delicado"
+output:
+  html_document:
+    number_sections: yes
+  html_notebook: null
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Write your own local linear regression function
+
+Ploting the function $m(t)= \sin(2\pi t)$, $t \in [0,1]$.
+<!-- If you want a Figure with caption in the pdf output, use that as the starting line fo the chunk:--->
+<!-- ```{r true-function, fig.cap="True function, $y = m(x) = \\sin(2 \\pi x)$"}-->
+
+```{r}
+tg <- seq(0,1,by=.01) # Regular grid of values t
+nt <- length(tg)      # number of points t in the regular grid
+mtg <- sin(2*pi*tg)   # m(tg), true regression function
+plot(tg, mtg, type="l")
+```
+
+Generating data according to the regression model
+\[y = m(x) + e\]
+
+```{r}
+n <- 75       # number of observed data
+sigma.e <- .5 # standard deviation of the random noise
+x <- runif(n)
+mx <- sin(2*pi*x)
+y <- mx + rnorm(n,0,sigma.e)
+
+plot(x,y)
+lines(tg,mtg)
+```
+
+Estimating $m(t)$, for $t=0.4$.
+```{r}
+plot(x,y)
+lines(tg,mtg)
+t <- .4 # t=.4, repeat later with t= .2, .6, .8
+abline(v=t,col="grey")
+# Defining the weigths by a Gaussian kernel
+x.t <- x-t
+h <- .1 # h=.1, repeat later with h= .025, .5
+w.t <- dnorm(x.t,mean=0,sd=h)
+# Adding to the graphic the kernel function, evaluated at tg
+abline(h=min(y),col="grey")
+cte=.2 # We define this constant jus to have a nice graphic
+lines(tg, min(y) + dnorm(tg-t,mean=0,sd=h) * cte, col="blue" )
+lines(c(t,t+h),c(min(y) + dnorm(h,mean=0,sd=h) * cte, 
+                 min(y) + dnorm(h,mean=0,sd=h) * cte),col="green",lwd=3)
+# Fiting the local linear regression around t
+# points(x,y,pch=19,cex=w.t/2)
+lm.t <- lm(y~x.t,weights=w.t)
+hat.mt <- lm.t$coefficients[1]
+# Plotting the local linear fit around t
+t.minus.h <- t-2*h
+t.plus.h <- t+2*h
+lines( c(t.minus.h, t.plus.h), 
+       c(lm.t$coefficients[1]-2*h*lm.t$coefficients[2], 
+         lm.t$coefficients[1]+2*h*lm.t$coefficients[2]), col="magenta")
+# Marking the estimated value of m(t)
+points(t,hat.mt,pch=19,cex=2,col="red")
+```
+
+Until here $t=.4$. **Repeat later with $t= .2, .6, .8$.**
+
+\newpage
+Estimating $m(t)$, for all `t` in `tg`.
+```{r}
+hat.mtg <- numeric(nt)
+for (i in 1:nt){
+  t <- tg[i]
+  x.t <- x-t
+  w.t <- dnorm(x.t,mean=0,sd=h)
+  lm.t <- lm(y~x.t,weights=w.t)
+  hat.mtg[i] <- lm.t$coefficients[1]
+}
+plot(x,y)
+lines(tg,mtg)
+lines(tg,hat.mtg,col=2)
+```
+
+**Writing a local linear regression function**
+```{r}
+loc.lin.reg <- function(x, y, h=range(x)/10, tg=seq(min(x),max(x),length=51)){
+  nt <- length(tg)
+  mt <- numeric(nt)
+  for (i in 1:nt){
+    t <- tg[i]
+    w.t <- dnorm(x-t,mean=0,sd=h)
+    x.t <- x-t
+    lm.t <- lm(y~x.t,weights=w.t)
+    mt[i] <- lm.t$coefficients[1]
+  }
+  return(list(mt=mt,tg=tg,h=h))
+}
+```
+
+Now we use this local linear regression function with 3 different values for the smoothing parameter $h$.
+```{r}
+plot(x,y)
+lines(tg,mtg)
+llr1 <- loc.lin.reg(x=x,y=y, h=.025, tg=tg)
+lines(tg,llr1$mt,col=2)
+```
+
+```{r}
+plot(x,y)
+lines(tg,mtg)
+llr2 <- loc.lin.reg(x=x,y=y, h=.1, tg=tg)
+lines(tg,llr2$mt,col=4)
+```
+
+```{r}
+plot(x,y)
+lines(tg,mtg)
+llr3 <- loc.lin.reg(x=x,y=y, h=.5, tg=tg)
+lines(tg,llr3$mt,col=6)
+```
+
+```{r}
+plot(x,y)
+lines(tg,mtg)
+lines(tg,llr1$mt,col=2)
+lines(tg,llr2$mt,col=4)
+lines(tg,llr3$mt,col=6)
+legend("topright",c("h=.025","h=.1","h=.5"), col=c(2,4,6),lty=1)
+```
+
+# Aircraft Data
+
+Calling library **sm**.
+```{r,message=FALSE}
+library(sm)
+```
+
+Reading the data and taking logarithms.
+```{r,message=FALSE}
+data(aircraft)
+# help(aircraft)
+attach(aircraft)
+
+lgPower <- log(Power)
+lgSpan <- log(Span)
+lgLength <- log(Length)
+lgWeight <- log(Weight)
+lgSpeed <- log(Speed)
+lgRange <- log(Range)
+```
+
+Scatterplots of log variables against year (`Yr`)
+<!-- also possible ```{r, fig.width=7, fig.asp=1} or ```{r, fig.asp=1}-->
+```{r, fig.width=7, fig.height=10, fig.asp=1} 
+op<-par(mfrow=c(3,2))
+plot(Yr,lgPower)
+plot(Yr,lgSpan)
+plot(Yr,lgLength)
+plot(Yr,lgWeight)
+plot(Yr,lgSpeed)
+plot(Yr,lgRange)
+par(op)
+```
+
+Adding the local linear regression estimators to 
+the scatterplots of log variables against year (`Yr`).
+```{r, fig.asp=1}
+op<-par(mfrow=c(3,2))
+plot(Yr,lgPower)
+llr <- loc.lin.reg(x=Yr,y=lgPower, tg=Yr)
+lines(Yr, llr$mt, col=2, lwd=2)
+
+plot(Yr,lgSpan)
+llr <- loc.lin.reg(x=Yr,y=lgSpan, tg=Yr)
+lines(Yr, llr$mt, col=2, lwd=2)
+
+plot(Yr,lgLength)
+llr <- loc.lin.reg(x=Yr,y=lgLength, tg=Yr)
+lines(Yr, llr$mt, col=2, lwd=2)
+
+plot(Yr,lgWeight)
+llr <- loc.lin.reg(x=Yr,y=lgWeight, tg=Yr)
+lines(Yr, llr$mt, col=2, lwd=2)
+
+plot(Yr,lgSpeed)
+llr <- loc.lin.reg(x=Yr,y=lgSpeed, tg=Yr)
+lines(Yr, llr$mt, col=2, lwd=2)
+
+plot(Yr,lgRange)
+llr <- loc.lin.reg(x=Yr,y=lgRange, tg=Yr)
+lines(Yr, llr$mt, col=2, lwd=2)
+
+par(op)
+```
