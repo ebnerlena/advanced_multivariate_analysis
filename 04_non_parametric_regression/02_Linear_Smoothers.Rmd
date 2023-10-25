@@ -1,0 +1,358 @@
+---
+title: "Linear Smoothers"
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This practice illustrates several characteristics of linear smoothers, 
+using local polynomial regression as an example:
+
+1. How do the rows of smoothing matrix $S$ look like?
+2. Equivalent number of parameters
+3. Estimation of the error variance $\sigma^2$ when using linear smoothers
+
+We use "locpolreg"
+```{r}
+source("locpolreg.R")
+```
+
+
+Generating artifial $n=101$ data $(x_i,y_i)$, $x_i$ being equally spaced values:
+```{r}
+x <- seq(0,1,by=.01)
+y0 <- sin(2*pi*x)
+y0prima <- cos(2*pi*x)*2*pi
+sigma<-.2
+sigma2 <- sigma^2
+y <- y0+rnorm(length(x),0,sigma)
+plot(x,y)
+lines(x,y0)
+```
+
+# How do the rows of smoothing matrix $S$ look like?
+
+The smoothing matrix $S$ is $n\times n$,  with $n=101$ in this case.
+We will plot 5 rows of $S$:
+```{r}
+I<- c(1, 10, 51, 91, 101)
+```
+
+## Estimating the regression function ($0$-th derivative, $r=0$).
+```{r}
+op <- par(mfrow=c(2,3))
+res0 <- locpolreg(x,y,h=.2,q=0,r=0,tg=x,type.kernel="epan",main="r=0, q=0");lines(x,y0,col=2)
+res1 <- locpolreg(x,y,h=.2,q=1,r=0,tg=x,type.kernel="epan",main="r=0, q=1");lines(x,y0,col=2)
+res2 <- locpolreg(x,y,h=.2,q=2,r=0,tg=x,type.kernel="epan",main="r=0, q=2");lines(x,y0,col=2)
+
+i<-1
+plot(x,res0$S[I[i],])
+for (i in seq(1,length(I))){ 
+   points(x,res0$S[I[i],],col=i)
+   lines(c(x[I[i]],x[I[i]]),c(0,res0$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res1$S[I[i],])
+for (i in seq(1,length(I))){ 
+   points(x,res1$S[I[i],],col=i)
+   lines(c(x[I[i]],x[I[i]]),c(0,res1$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res2$S[I[i],])
+for (i in seq(1,length(I))){ 
+   points(x,res2$S[I[i],],col=i)
+   lines(c(x[I[i]],x[I[i]]),c(0,res2$S[I[i],I[i]]),col=i)
+}
+par(op)
+```
+
+Joint plot of all the rows in smoothing matrix $S$ for local constant, linear and quadratic fits.
+```{r}
+names(res0)
+dim(res0$S)
+```
+
+```{r}
+ts.plot(t(res0$S),col=1:101)
+```
+
+```{r}
+ts.plot(t(res1$S),col=1:101)
+```
+
+```{r}
+ts.plot(t(res2$S),col=1:101)
+```
+
+```{r}
+op <- par(mfrow=c(1,2))
+ts.plot(t(res0$S),col=1:101)
+image(res0$S)
+par(op)
+```
+
+## Estimating the 1st derivative of the regression function (r=1)
+```{r,fig.asp=1.5}
+res1p <- locpolreg(x,y,h=.2,q=1,r=1,tg=x,type.kernel="epan",main="r=1, q=1")
+lines(x,y0prima,col=2)
+```
+```{r,fig.asp=1.5}
+res2p <- locpolreg(x,y,h=.2,q=2,r=1,tg=x,type.kernel="epan",main="r=1, q=2")
+lines(x,y0prima,col=2)
+```
+```{r,fig.asp=1.5}
+res3p <- locpolreg(x,y,h=.2,q=3,r=1,tg=x,type.kernel="epan",main="r=1, q=3")
+lines(x,y0prima,col=2)
+```
+
+```{r}
+par(mfrow=c(1,3))
+i<-1
+plot(x,res1p$S[I[i],])
+for (i in seq(1,length(I))){ 
+   points(x,res1p$S[I[i],],col=i)
+   lines(c(x[I[i]],x[I[i]]),c(0,res1p$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res2p$S[I[i],])
+for (i in seq(1,length(I))){ 
+   points(x,res2p$S[I[i],],col=i)
+   lines(c(x[I[i]],x[I[i]]),c(0,res2p$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res3p$S[I[i],])
+for (i in seq(1,length(I))){ 
+   points(x,res3p$S[I[i],],col=i)
+   lines(c(x[I[i]],x[I[i]]),c(0,res3p$S[I[i],I[i]]),col=i)
+}
+```
+
+## Rows of the smoothing matrix S for the Boston housing data
+```{r, message=FALSE,results='hide'}
+# load("boston.Rdata")
+library(mlbench)
+# help(BostonHousing)
+data(BostonHousing2)
+boston.c <- BostonHousing2
+names(boston.c)[12]<-'room'
+# names(boston.c)
+# [1] "town"    "tract"   "lon"     "lat"     "medv"    "cmedv"   "crim"    "zn"
+# [9] "indus"   "chas"    "nox"     "room"    "age"     "dis"     "rad"     "tax"
+# [17] "ptratio" "b"       "lstat" 
+attach(boston.c)
+
+PctgBlack<-100*(0.63+sqrt(b/1000))
+n<-dim(boston.c)[1]
+```
+
+
+`room` against `lstat`
+```{r}
+a<-sort(lstat,index.return=T)
+x<-lstat[a$ix]
+y<-room[a$ix]
+
+I<- c(1, 51, 253, 451, 506)
+```
+
+Estimating the regression function ($0$-th derivative, $r=0$)
+```{r}
+par(mfrow=c(2,3))
+res0 <- locpolreg(x,y,h=2,q=0,r=0,tg=x)
+res1 <- locpolreg(x,y,h=2,q=1,r=0,tg=x)
+res2 <- locpolreg(x,y,h=2,q=2,r=0,tg=x)
+
+i<-1
+plot(x,res0$S[I[i],])
+for (i in seq(1,length(I))){ 
+  points(x,res0$S[I[i],],col=i)
+  lines(c(x[I[i]],x[I[i]]),c(0,res0$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res1$S[I[i],])
+for (i in seq(1,length(I))){ 
+  points(x,res1$S[I[i],],col=i)
+  lines(c(x[I[i]],x[I[i]]),c(0,res1$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res2$S[I[i],])
+for (i in seq(1,length(I))){ 
+  points(x,res2$S[I[i],],col=i)
+  lines(c(x[I[i]],x[I[i]]),c(0,res2$S[I[i],I[i]]),col=i)
+}
+```
+
+Estimating the 1st derivative of the regression function ($r=1$)
+```{r,fig.asp=1.5}
+res1p <- locpolreg(x,y,h=2,q=1,r=1,tg=x)
+```
+```{r,fig.asp=1.5}
+res2p <- locpolreg(x,y,h=2,q=2,r=1,tg=x)
+```
+```{r,fig.asp=1.5}
+res3p <- locpolreg(x,y,h=2,q=3,r=1,tg=x)
+```
+
+```{r}
+par(mfrow=c(1,3))
+i<-1
+plot(x,res1p$S[I[i],])
+for (i in seq(1,length(I))){ 
+  points(x,res1p$S[I[i],],col=i)
+  lines(c(x[I[i]],x[I[i]]),c(0,res1p$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res2p$S[I[i],])
+for (i in seq(1,length(I))){ 
+  points(x,res2p$S[I[i],],col=i)
+  lines(c(x[I[i]],x[I[i]]),c(0,res2p$S[I[i],I[i]]),col=i)
+}
+
+i<-1
+plot(x,res3p$S[I[i],])
+for (i in seq(1,length(I))){ 
+  points(x,res3p$S[I[i],],col=i)
+  lines(c(x[I[i]],x[I[i]]),c(0,res3p$S[I[i],I[i]]),col=i)
+}
+```
+
+
+# Equivalent number of parameters
+
+## Equivalent number of parametes for local constant, linear and quadratic fits.
+
+Computing the equivalent number of parametes for local constant, linear and quadratic fits.
+```{r}
+x <- seq(0,1,by=.01)
+y0 <- sin(2*pi*x)
+sigma <- .2
+y <- y0+rnorm(length(x),0,sigma)
+
+res0 <- locpolreg(x,y,h=.2,q=0,r=0,tg=x,type.kernel="epan",doing.plot=FALSE)
+res1 <- locpolreg(x,y,h=.2,q=1,r=0,tg=x,type.kernel="epan",doing.plot=FALSE)
+res2 <- locpolreg(x,y,h=.2,q=2,r=0,tg=x,type.kernel="epan",doing.plot=FALSE)
+
+sum(diag(res0$S))
+sum(diag(res1$S))
+sum(diag(res2$S))
+```
+
+
+Looking for a local cubic fit having the same equivalent number of parameters as the local linear fit with $h=.1$.
+```{r}
+v.h=seq(.4,.6,length=5);
+for (i in 1:5){
+  res3 <- locpolreg(x,y,h=v.h[i],q=3,r=0,tg=x,type.kernel ="epan",doing.plot = FALSE);
+  print(sum(diag(res3$S)))
+}
+
+```
+
+We reduce the range fo `v.h`, according to the previous results:
+```{r}
+v.h=seq(.56,.58,length=5);
+for (i in 1:5){
+  res3 <- locpolreg(x,y,h=v.h[i],q=3,r=0,tg=x,type.kernel ="epan",doing.plot = FALSE);
+  print(sum(diag(res3$S)))
+}
+v.h
+```
+
+The right value for $h$ is $0.57$.
+
+(The right value depends only on the specific $x_i$'s values.)
+```{r}
+res3 <- locpolreg(x,y,h=.57,q=3,r=0,tg=x,type.kernel ="epan",doing.plot = FALSE);
+print(sum(diag(res1$S)))
+print(sum(diag(res3$S)))
+```
+
+```{r}
+plot(x,y)
+lines(x,y0)
+lines(x,res1$mtgr,col=2)
+lines(x,res3$mtgr,col=4)
+legend("topright",c("Local linear fit","Local cubic fit"),col=c(2,4),lty=1)
+```
+
+
+
+# Estimation of $\sigma^2$ when using linear smoothers
+
+## Estimating the residual variance and the adjusted determination coefficient $R^2$.
+
+Computing the sampling variance of the response variable.
+```{r}
+n <- length(x)
+var(y)
+```
+
+Theoretical residual variance: $sigma^2=$`r sigma2`.
+
+Results for the local linear fit:
+```{r}
+SSR1 <- sum( (y -  res1$mtgr)^2 )
+(enp1 <- sum(diag(res1$S)))
+``` 
+```{r}
+(hat_sigma2_1 <- SSR1 / (n-enp1))
+``` 
+<!--- 
+```{r}
+(enp1.2 <- sum(diag( t(res1$S) %*% res1$S)))
+``` 
+```{r}
+(hat_sigma2_1.2 <- SSR1/(n-2*enp1+enp1.2))
+``` 
+--->
+
+The estimated residual variance, `r hat_sigma2_1`, is slightly larger than the true one: $sigma^2=$`r sigma2`.
+
+```{r}
+(R2_1 <- 1 - hat_sigma2_1/var(y))
+``` 
+
+The proportion of variance of Y explained by the local linear estimated nonparametric model is `r round(R2_1,2)`.
+ 
+
+Results for the local cubic fit:
+```{r}
+SSR3 <- sum( (y -  res3$mtgr)^2 )
+(enp3 <- sum(diag(res3$S)))
+``` 
+```{r}
+(hat_sigma2_3 <- SSR3 / (n-enp3))
+``` 
+<!--- 
+```{r}
+(enp3.2 <- sum(diag( t(res3$S) %*% res3$S)))
+``` 
+```{r}
+(hat_sigma2_3.2 <- SSR3/(n-2*enp3+enp3.2))
+```
+---> 
+```{r}
+(R2_3 <- 1 - hat_sigma2_3/var(y))
+``` 
+
+The proportion of variance of Y explained by the local cubic estimated nonparametric model is `r round(R2_3,2)`, larger than that of the local linear fit `r round(R2_1,2)`.

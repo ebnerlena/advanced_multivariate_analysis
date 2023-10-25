@@ -11,4 +11,5 @@
 - [Principal Curves](./03_principal_curves/)
 - [t-SNE](./03_t-SNE/)
 - [Dimensionality Reduction Assignment](./03_assignment/)
-  - 
+- [Non-Parametric Regression](./04_non_parametric_regression/)
+- 

@@ -1,0 +1,190 @@
+---
+title: "Bias-variance trade-off"
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Illustration of local polynomial fitting. 
+Bias-Variance trade-off, depending on bandwidth h
+
+
+Generating artifial $n=101$ data $(x_i,y_i)$, $x_i$ being equally spaced values:
+```{r}
+sigma.e<-.5
+x <- seq(0,1,by=.01)
+y0 <- sin(2*pi*x)
+y <- y0+rnorm(length(x),0,sigma.e)
+plot(x,y)
+lines(x,y0)
+```
+
+# Local behaviour
+
+We use "locpolreg"
+```{r}
+source("locpolreg.R")
+```
+
+```{r,fig.asp=1}
+h.v <- c(.025, .1,.4)
+q.v <- c(0,1,2)
+
+op <- par(mfrow=c(3,3))
+for (q in q.v){
+   for (h in h.v){
+      locpolreg(x,y,h=h,q=q,r=0,tg=x,type.kernel="epan",ylim=c(-2,2))
+      title(main=paste("q=",q,"; h=",h,sep=""))
+      lines(x,y0,col=2)
+   }
+}
+par(op)
+```
+We define a function that generates artificial data and compares the estimated regression function with the true one.
+
+```{r}
+# 
+# sim.sinus Generates artificial data and compare the estimated 
+#           regression function with the real one
+#
+sim.sinus<- function(n=100, nt=100, sigma.e =.2, S=1, h=.2,
+                     q=1,doing.plot=TRUE, doing.plot.locpolreg=FALSE, ...){
+    x <- seq(0,1,length=n)
+    mx <- sin(2*pi*x)
+    
+    tg <- seq(0,1,length=nt) 
+    mtg <- sin(2*pi*tg)
+
+    mean.hmtg <- 0*mtg
+    mean.hmtg2 <- 0*mtg
+
+    for (i in seq(1:S)){
+       y <- mx + rnorm(n,0,sigma.e)
+       hmtg.aux <- locpolreg(x=x,y=y,h=h,q=q,r=0,tg=tg,ylim=c(-1.2,1.2),
+                             doing.plot=doing.plot.locpolreg,...)$mtg
+       if (doing.plot.locpolreg) lines(tg,mtg,col=2)
+       mean.hmtg <- mean.hmtg + hmtg.aux
+       mean.hmtg2 <- mean.hmtg2 + hmtg.aux*hmtg.aux
+    }
+    mean.hmtg <- mean.hmtg/S
+    mean.hmtg2 <- mean.hmtg2/S
+    sd.hmtg <- sqrt(mean.hmtg2-mean.hmtg*mean.hmtg)
+    if (doing.plot){
+      plot(tg,mtg,type="l",ylim=c(-1.2,1.2))
+      lines(tg,mean.hmtg,col=4)
+      lines(tg,mean.hmtg+2*sd.hmtg,col=3,lty=2)
+      lines(tg,mean.hmtg-2*sd.hmtg,col=3,lty=2)
+      lines(tg,mtg,col=1)
+    }
+    return(list(mean.hmtg=mean.hmtg,sd.hmtg=sd.hmtg))
+}
+```
+
+
+```{r,fig.asp=.75}
+n=100; nt=100; sigma.e =.2; S=30; q=1
+h.v=c(.025,.1,.4)
+
+op <- par(mfrow=c(2,3))
+
+for (h in h.v){
+    # simulated data
+    x <- seq(0,1,length=n)
+    mx <- sin(2*pi*x)
+    
+    tg <- seq(0,1,length=nt) 
+    mtg <- sin(2*pi*tg)
+    plot(tg,mtg,type="l",ylim=c(-1.2,1.2))
+    title(main=paste("q=",1,"; h=",h,sep=""))
+
+    mean.hmtg <- 0*mtg
+    mean.hmtg2 <- 0*mtg
+
+    for (i in seq(1:S)){
+       y <- mx + rnorm(n,0,sigma.e)
+       hmtg.aux <- locpolreg(x=x,y=y,h=h,q=q,r=0,tg=tg,ylim=c(-1.2,1.2),
+                             doing.plot=F,type.kernel="epan")$mtg
+       lines(tg,hmtg.aux,col=2)
+    }
+    lines(tg,mtg,col=1,lwd=2)
+}
+
+for (h in h.v){
+   sim.sinus(n=n, nt=nt, S=S, sigma.e=sigma.e, h=h, 
+             doing.plot=TRUE, type.kernel="epan")
+   title(main=paste("q=",1,"; h=",h,sep=""))
+}
+par(op)
+```
+
+
+# Global behaviour
+```{r}
+sim.sinus.hv <- function(n=100, nt=100, sigma.e =.2, S=1, hv=c(.2,.4), q=1, ...){
+  # simulated data
+  x <- seq(0,1,length=n)
+  mx <- sin(2*pi*x)
+  
+  tg <- seq(0,1,length=nt) 
+  mtg <- sin(2*pi*tg)
+  
+  nh <- length(hv)
+  
+  hmtg.aux   <- matrix(0,nrow=nh,ncol=nt)
+  mean.hmtg  <- matrix(0,nrow=nh,ncol=nt)
+  mean.hmtg2 <- matrix(0,nrow=nh,ncol=nt)
+  
+  for (i in seq(1:S)){
+    y <- mx + rnorm(n,0,sigma.e)
+    for (j in (1:nh)){
+      h <- hv[j]
+      hmtg.aux[j,] <- locpolreg(x=x,y=y,h=h,q=q,r=0,tg=tg,ylim=c(-1.2,1.2),
+                            doing.plot=FALSE,...)$mtg
+    }
+    mean.hmtg  <- mean.hmtg  + hmtg.aux
+    mean.hmtg2 <- mean.hmtg2 + hmtg.aux^2
+  }
+  mean.hmtg  <- mean.hmtg/S
+  mean.hmtg2 <- mean.hmtg2/S
+  sd.hmtg <- sqrt(mean.hmtg2-mean.hmtg*mean.hmtg)
+  dt <- (tg[2]-tg[1])
+  IntBias2 <- apply(mean.hmtg, 1, function(x,mtg,dt){sum((x-mtg)^2)*dt},mtg,dt)
+  IntVar <- apply(sd.hmtg,1,function(x,dt){sum(x^2)*dt},dt)
+  IMSE <- IntBias2 + IntVar
+  return(list(mean.hmtg=mean.hmtg,sd.hmtg=sd.hmtg, IntBias2=IntBias2, IntVar=IntVar, IMSE=IMSE))
+}
+```
+
+```{r}
+# set.seed(123456) # To recover the graphic in the slides
+hv <- exp( seq(log(.02),log(.3),length=25)) # Valid range for Epanechnikov Kernel
+
+aux <- sim.sinus.hv(n=n, nt=nt, S=S, sigma.e=sigma.e, hv=hv, type.kernel="epan")
+IntBias2 <- aux$IntBias2
+IntVar <- aux$IntVar
+IMSE <- aux$IMSE
+```
+
+
+```{r}
+plot(hv, IntBias2, ylim=c(0,max(IMSE)),col="red",lwd=2,type="l",
+     main="IntBias2, IntVar and IMSE for local polynomial; q=1")
+lines(hv,IntVar,col="blue",lwd=2)
+lines(hv,IMSE,col=1,lwd=2)
+h.opt <- hv[which.min(IMSE)]
+abline(v=h.opt,col="magenta",lwd=2,lt=2)
+text(h.opt,.9*max(IMSE),paste("h.opt=",round(h.opt,4),sep=""),col="magenta",pos=4)
+legend("topleft",c("IntBias2","IntVar","IMSE"),col=c(2,4,1),lwd=2)
+```
