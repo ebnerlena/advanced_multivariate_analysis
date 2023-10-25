@@ -4,4 +4,11 @@
 - [Density Estimation Example Code](./01_density_estimation/)
 - [Density Estimation Assignment](./01_assignment/)
 - [Clustering Example Code](./02_clustering/)
-- 
+- [Clustering Assignment](./02_assignment/)
+- [Non Linear Dimensionality Reduction](./03_nonlinear_dimensionality_reduction/)
+- [ISOMAP](./03_isomap/)
+- [Local MDS](./03_local_mds/)
+- [Principal Curves](./03_principal_curves/)
+- [t-SNE](./03_t-SNE/)
+- [Dimensionality Reduction Assignment](./03_assignment/)
+  - 
