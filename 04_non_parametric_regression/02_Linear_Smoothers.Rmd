@@ -27,7 +27,7 @@ using local polynomial regression as an example:
 
 We use "locpolreg"
 ```{r}
-source("locpolreg.R")
+source("./04_non_parametric_regression/locpolreg.R")
 ```
 
 
@@ -48,11 +48,16 @@ lines(x,y0)
 The smoothing matrix $S$ is $n\times n$,  with $n=101$ in this case.
 We will plot 5 rows of $S$:
 ```{r}
+# choosing points: left, close to left, middle, close to right, right
 I<- c(1, 10, 51, 91, 101)
 ```
 
 ## Estimating the regression function ($0$-th derivative, $r=0$).
 ```{r}
+# red = true regression function
+# black = estimated regression function
+# e.g. green line in lower plots is the row of the 51 point in the residuals
+# in quadratic estimator we even have weights below 0
 op <- par(mfrow=c(2,3))
 res0 <- locpolreg(x,y,h=.2,q=0,r=0,tg=x,type.kernel="epan",main="r=0, q=0");lines(x,y0,col=2)
 res1 <- locpolreg(x,y,h=.2,q=1,r=0,tg=x,type.kernel="epan",main="r=0, q=1");lines(x,y0,col=2)

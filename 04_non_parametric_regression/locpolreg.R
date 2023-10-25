@@ -63,7 +63,7 @@ locpolreg <- function(x,y,h=(max(x)-min(x))/5,q=1,r=0,tg=NULL,type.kernel="norma
          lines(sorted.tg,mtgr[sorted.tg.ix],col=1,lwd=2)
       }
    }
-return(list(mtgr=mtgr,S=S))
+return(list(mtgr=mtgr,S=S)) # mtgr is estimation if delivered function; s = row vector = smoothing matrix
 }
 
 epan <- function(x){pmax(.75*(x+1)*(1-x))}
