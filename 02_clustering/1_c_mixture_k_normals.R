@@ -23,6 +23,7 @@ eps.p <- 1e-10
 eps.ll <- 1e-10
 
 # initial parameters
+# with mean vector µj mu and variance matrix Σj sigma
 p.0 <- rep(1/k,k)
 #mu <- vector("list",k)
 #mu.0 <- array(0,dim=c(d,k))

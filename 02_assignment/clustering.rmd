@@ -179,7 +179,9 @@ for (j in 1:k){
 It is possible to merge two of the clusters defined in the previous section.
 
 ```{r}
-scm=summary(mclustBIC(X, G=k, modelNames = "VVV"),X)
+# with summary we obtain a summary of the clustering analysis results
+scm=summary(mclustBIC(X, G=k, modelNames = "VVV"),X) # performs a model-based clustering analysis using the Bayesian Information Criterion (BIC) to select the number of clusters k
+# perform model-based clustering on the dataset X. The "bhat" method is specified, indicating the method for merging clusters. The scm variable, which contains the results of the mclustBIC analysis, is used as input for merging the clusters.
 fpc_mix<- fpc::mergenormals(X,method="bhat",scm)
 Y=as.data.frame(X)
 ggplot(Y,aes(x=temp,y=casual,colour=as.factor(fpc_mix$clustering)))+geom_point()

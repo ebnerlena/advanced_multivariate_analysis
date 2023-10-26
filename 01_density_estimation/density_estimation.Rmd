@@ -18,7 +18,7 @@ Three-month certificate of deposit (CD) rates for 69 Long Island banks and thrif
 Reading CDrate.
 ```{r CDrate}
 insta
-cdrate.df <-read.table("cdrate.dat")
+cdrate.df <-read.table("./01_density_estimation/cdrate.dat")
 head(cdrate.df)
 CDrate <- cdrate.df[,1]
 sort(CDrate)
@@ -42,7 +42,6 @@ par(op)
 # stepfunction is a function that is constant at different intervals
 # a histogram can be converted into a step function
 ```
-
 
 ### Data: Boston Housing
 We'll use the `MASS::Boston` dataset, that contains median house values from Boston neighbourhoods.

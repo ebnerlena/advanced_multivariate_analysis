@@ -20,7 +20,7 @@ fit <- principal_curve(x)
 plot(fit,xlim=range(x[,1]),ylim=range(x[,2]),asp=1) # plot principal curve
 points(x,col=4)
 #lines(fit)
-points(fit) # points of principal curve
+   # points of principal curve
 whiskers(x, fit$s) # visualize projection error of principal curve points and original points
 
 # fit returns an object with
@@ -172,10 +172,12 @@ Var.resid.pr.cv <- prcv.0$dist/(n-1) # variability of residuals
 
 ```{r }
 # Projecting the principal curve over the Principal Components
+# uses the predict function to project new points (represented by prcv.0$s) onto the principal components
 proj.prcv.to.PC <- predict(zip.0.PC,prcv.0$s) # project new points over principal components
 
 plot(zip.0.PC$scores[,1:2],col=8)
 points(proj.prcv.to.PC[,1:2],col=2,pch=19)
+# adds lines to the plot, connecting the projected principal curve points in the order determined by prcv.0$ord
 lines(proj.prcv.to.PC[prcv.0$ord,1:2],col=4,lwd=2)
 ```
 

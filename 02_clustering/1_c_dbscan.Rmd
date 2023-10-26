@@ -17,6 +17,8 @@ height_pdf <- 6
 
 ## 1. DBSCAN concepts
 
+(number of clusters must not be specified in advance)
+
 ### A simulated data example
 We simulate 2-dimensional data clustered in 2 groups with additional outliers.
 
@@ -87,7 +89,7 @@ if (save_pdf) dev.off()
 ```{r,fig.asp=1,fig.width=6} 
 if (save_pdf) pdf("core.pdf",width = width_pdf, height = height_pdf)
 D <- as.matrix(dist(X))
-core.pts <- which( apply(D<=epsilon, 1, sum)>=minPts)
+core.pts <- which(apply(D<=epsilon, 1, sum)>=minPts)
 no.core.pts <- (1:n)[-core.pts]
 n.core <- length(core.pts)
 n.no.core <- n-n.core

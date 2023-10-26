@@ -77,6 +77,8 @@ table(cutree(hcl.rbf.1,3),iris$Species)
 ### K-means clustering
 
 ```{r}
+# the number K of final clusters is known in advance
+# K = 3
 km.3 <- kmeans(iris[,-5],3)
 table(km.3$cluster,iris$Species)
 ```
@@ -85,6 +87,7 @@ table(km.3$cluster,iris$Species)
 
 ```{r}
 library(cluster)
+# pam method
 kmed.3.Eucl <- pam(d.Eucl,3,diss=TRUE)
 table(kmed.3.Eucl$cluster,iris$Species)
 ```
@@ -122,6 +125,8 @@ plot(1:6,Gap$Tab[,"gap"],type="b")
 points(1:6,Gap$Tab[,"gap"]+ Gap$Tab[,"SE.sim"],pch="+", col=2)
 points(1:6,Gap$Tab[,"gap"]- Gap$Tab[,"SE.sim"],pch="+",col=2)
 abline(h=Gap$Tab[,"gap"],col=4,lty="16")
+
+# look if value in gap statistic plot is inside the interval (between +) -> best number of clusters
 ```
 
 In this case $K^*=4$. 
@@ -132,7 +137,7 @@ table(cut.4.hcl.Eucl, iris$Species)
 ```
 
 ### Silhouette
-
+(we select the number of clusters corresponding to the largest number of the silhouette width s(i))
 ```{r}
 hcl.Eucl <- hclust(d.Eucl, method="ward.D")
 cut.2.hcl.Eucl <- cutree(hcl.Eucl,2)
@@ -167,6 +172,7 @@ Optimal number of Clusters for the Gaussian mixture models
 
 ```{r}
 library(ClusterR)
+# function Optimal Clusters GMM to determine the optimal number of clusters in GMM.
 opt.GMM <- Optimal_Clusters_GMM(
   data=iris[,-5], 
   max_clusters=6,
@@ -178,10 +184,9 @@ opt.GMM <- as.numeric(opt.GMM)
 plot(opt.GMM,xlab="clusters",ylab="AIC",type="b",lty=3)
 ```
 
-
-
 Estimation of the Gaussian Mixture Model (GMM) for $K=4$ components:
 ```{r}
+# GMM fits Gaussian Mixture Models using the EM algorithm (with an inner K-means step)
 GMM.4 <- GMM(
   data=iris[,-5], 
   gaussian_comps = 4,
@@ -205,6 +210,9 @@ table(GMM.4.class, iris$Species)
 
 The function `cluster.stats` in package `fpc` computes a number of statistics, which can be used for cluster validation, comparison between clusterings and decision about the number of clusters.
 ```{r}
+# Optimal K**: K at which CH(K) is the maximum
+# professor like this method the best
+# Calinski and Harabasz (1974) index with cl.stats$ch
 library(fpc)
 n.cl <- 2:10
 l.n.cl<-length(n.cl)

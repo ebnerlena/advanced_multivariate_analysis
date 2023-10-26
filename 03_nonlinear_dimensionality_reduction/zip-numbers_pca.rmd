@@ -47,28 +47,42 @@ par(op)
 ```
 
 ```{r}
+# perform PCA
 zip.PC <- princomp(zip.train[,-1])
+# displays a summary of the principal component analysis 
 summary(zip.PC)
+# creates a biplot, which is a type of graphical representation that combines a scatter plot of the data points with arrows 
+# indicating the direction and strength of the loadings of the original variables on the principal components
 biplot(zip.PC)
 ```
 
 ```{r}
-plot(zip.PC$scores[,1:2],pch=19,cex=.5,col=zip.train[,1]+1)
+# creates a scatter plot of the first and second principal components
+plot(zip.PC$scores[,1:2],pch=19,cex=.5,col=zip.train[,1]+1) # colors the points based on the class labels in the first column
 ```
 
 ```{r}
+# creates a scatter plot of the first and third principal components
 plot(zip.PC$scores[,c(1,3)],pch=19,cex=.5,col=zip.train[,1]+1)
 ```
 
 ```{r}
+#  creates a matrix of scatter plots for the first four principal components
 pairs(zip.PC$scores[,1:4], pch=19,cex=.5,col=zip.train[,1]+1)
 ```
 
 ```{r}
+# calculates the eigenvalues of the principal components
+# eigenvalues represent the variance explained by each principal component
+# zip.PC$sdev contains the standard deviations of the principal components, and squaring them yields the eigenvalues
 eigvals <- zip.PC$sdev^2
+# calculates the percentage of variance explained (VE) by each principal component
+# sum of all eigenvalues (= total variance)
 pctg.VE <- 100*eigvals/sum(eigvals)
-cum.pctg.VE <- cumsum(pctg.VE)
+# calculates the cumulative percentage of variance explained
+cum.pctg.VE <- cumsum(pctg.VE) # cumulatively sum the percentages of variance explained from the first principal component to the current one
 
+# displays the percentage of variance explained by the first 20 principal components
 pctg.VE[1:20]
 # Comp.1    Comp.2    Comp.3    Comp.4    Comp.5    Comp.6 
 # 17.884424  8.967040  6.571727  5.554546  4.914189  3.851923 
@@ -78,6 +92,8 @@ pctg.VE[1:20]
 # 1.703614  1.469115  1.416223  1.298084  1.224955  1.152249 
 # Comp.19   Comp.20 
 # 1.060983  0.995179 
+
+# displays the cumulative percentage of variance explained for the first 20 principal components
 cum.pctg.VE[1:20]
 # Comp.1   Comp.2   Comp.3   Comp.4   Comp.5   Comp.6   Comp.7 
 # 17.88442 26.85146 33.42319 38.97774 43.89193 47.74385 51.01490 
@@ -93,6 +109,8 @@ k <- 12  # 63% varianza total
 ```
 
 ```{r}
+# t(zip.PC$loadings[,1:12]) transposes the subset of the first 12 principal component loadings so that each row corresponds to one principal component
+# apply plot.zip function to each row
 op <- par(mfrow=c(3,4))
 apply(t(zip.PC$loadings[,1:12]),1,plot.zip,use.first=TRUE)
 par(op) 

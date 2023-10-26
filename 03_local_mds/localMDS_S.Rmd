@@ -56,12 +56,19 @@ points(A + rx,ry,col=1,pch=19,cex=.6)
 ```{r}
 # windows(width=10,height=4)
 # pdf("ej_MDS_S_res.pdf",width=10,height=4,paper="special")
-mdsXY <- stats::cmdscale(dist(XY),eig = TRUE)
+mdsXY <- stats::cmdscale(dist(XY),eig = TRUE) #  classical MDS
 #op<-par(mfrow=c(1,2))
 plot(mdsXY$eig,type="b",main="MDS eigenvalues")
+
+# The eig = TRUE argument indicates that the function should return the eigenvalues of the solution. 
+# Eigenvalues are important in MDS as they provide information about the amount of variance explained by each dimension of the lower-dimensional representation.
 ```
 
 ```{r}
+# applies a reflection along one dimension to adjust the orientation of the plot
+# diag(c(1, -1)) creates a diagonal matrix with values 1 and -1 on the main diagonal, effectively flipping the sign of the second dimension
+# Multiplying the data points by this diagonal matrix essentially reflects or flips the points along one dimension, which can be a way to visually adjust the orientation of the plot
+
 plot(mdsXY$points%*%diag(c(1,-1)),main="MDS configuration")
 #par(op)
 #dev.off()
@@ -119,6 +126,7 @@ text(2*A,2.35,"Short and large distances")
 
 ```{r}
 # Removing large distances: smacof with weights
+# performing a weighted multidimensional scaling (MDS) 
 library(smacof)
 distXY <- dist(XY)
 n <- dim(XY)[1]
@@ -127,8 +135,11 @@ n <- dim(XY)[1]
 set.seed(my.seed)
 op<-par(mfrow=c(1,2))
 k <- 5
+# calculates the dissimilarity weights based on a KNN approach
 w <- dissWeights(distXY, type = "knn", k = k)
+# normalizes the weights to make them suitable for use in MDS
 w <- w * (n * (n - 1) * 0.5/sum(w^2))^0.5
+# performs the weighted MDS analysis
 res <- mds(distXY, weightmat = w, init = "random")
 plot(res$conf,main=paste("0-1 weighted MDS, K=",k))
 text(res$conf[,1],res$conf[,2],1:n,pos=3)

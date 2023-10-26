@@ -321,7 +321,7 @@ y=list()
 for (h in seq(11,50)){
   kx <- density(x)
   x_f <- approxfun(x=kx$x, y=kx$y, method='linear', rule=2)
-  f_loovc = function(p) (n/(n-1))*(x_f(p)-(x_f(0)/(n*h)))
+  f_loovc = function(p) (n/(n-1))*(x_f(p)-(dnorm(0)/(n*h)))
   y[length(y)+1]<-list(x_f(x))
   hx_loocv=lapply(x,f_loovc)
   looCV_log__lik=append(looCV_log__lik,sum(log(unlist(hx_loocv))))

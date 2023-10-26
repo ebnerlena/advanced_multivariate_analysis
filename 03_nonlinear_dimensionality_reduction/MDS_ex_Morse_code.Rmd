@@ -58,8 +58,9 @@ text(1:36,1:36, morsecodes.row[,2],cex=2)
 2. Performing a **classical metric MDS** of the data, using the `cmdscale` program. 
 
 ```{r}
+# omputes a classical MDS solution with six dimensions for the dissimilarity matrix ad.mc
 out <- cmdscale(ad.mc,k=6,eig=TRUE)
-out$eig
+out$eig # retrieves the eigenvalues of the solution
 # not an euclidean matrix so we cannot recover the full matrix again
 ``` 
 
@@ -68,14 +69,23 @@ What is their meaning?
 
 
 ```{r}
+# GOF = Goodness-of-fit for MDS
+# It measures how well the lower-dimensional representation captures the dissimilarity or distance structure of the original data. 
+# Higher GOF values indicate a better fit or a more accurate representation.
 out$GOF
+
+#  these calculations provide different measures of how much variance is explained by the positive eigenvalues.
+
+#computes the cumulative proportion of positive eigenvalues and divides it by the sum of the absolute values of all eigenvalues
 print(cumsum(pmax(out$eig,0))/sum(abs(out$eig)))
+# computes the cumulative proportion of positive eigenvalues and divides it by the sum of positive eigenvalues
 print(cumsum(pmax(out$eig,0))/sum(pmax(out$eig,0)))
 ``` 
 
 3. Calcualting the goodness-of-fit (in percentage) of the three-dimensional solution:
 
 ```{r}
+# calculate and print the percentage of variance explained by the first three eigenvalues
 cumsum(out$eig[1:3])/sum(abs(out$eig))*100
 cumsum(out$eig[1:3])/sum(pmax(out$eig,0))*100
 ``` 
@@ -180,6 +190,7 @@ pairs(out.iso$points[,1:3],
 Plot stress as a function of the dimension.
 How many dimensions do you think are necessary to obtain a "good fit"?
 ```{r}
+# we try to minimze the stress function
 k<-6
 stress <- numeric(k)
 dimens <- 1:k

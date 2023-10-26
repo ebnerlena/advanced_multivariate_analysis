@@ -50,9 +50,9 @@ Let X be the data matrix with columns 2 to 11 of `HDI`:
 ```{r}
 X <- as.matrix(HDI[,2:11])
 ```
-Do dimensionality reduction of the columns of XX, from 10 dimesnions to q=1q=1, in two different ways:
+Do dimensionality reduction of the columns of X, from 10 dimesnions to q=1, in two different ways:
 
-**1.1** Computing the principal curve (as defined by Hastie and Stuetzle, 1989). Select the tuning parameter by using the local continuity meta criteria (with K′=5K′=5). Choose `df` in `seq(15,25,by=2)`
+**1.1** Computing the principal curve (as defined by Hastie and Stuetzle, 1989). Select the tuning parameter by using the local continuity meta criteria (with K′=5). Choose `df` in `seq(15,25,by=2)`
 
 ```{r}
 library(princurve)
