@@ -1,0 +1,162 @@
+---
+title: "Final Exam AMA-DS, January 2023. Practice"
+author: "Pedro Delicado"
+output:
+  html_document:
+    number_sections: yes
+  html_notebook: null
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+
+# Human Development Index
+
+In the HDI.Rdata file you will find some data published by the UNITED NATIONS DEVELOPMENT PROGRAM in its Human Development Report corresponding to the year 2017. After reading this file with
+
+```{r}
+load("./final_exam_practice/HDI.Rdata")
+```
+
+you will find the data frame `HDI` with the following the following variables:
+
+  
+| Variable | Description |
+| --- | --- |
+| HDI | Human Development Index (HDI) |
+| Median_age | Median age (years) |
+| Old\_age\_dep_rat | Old-age (65 and older) dependency ratio (per 100 people ages 15-64) |
+| Exp\_years\_school | Expected years of schooling (years) |
+| Life_expec | Life expectancy at birth (years) |
+| Inf\_Mort\_rat | Mortality rate, infant (per 1,000 live births) |
+| log\_GDP\_per_cap | logarithm of the Gross domestic product (GDP) per capita (PPP $: international dollars with purchasing power parity) |
+| Mob\_phon\_100_peopl | Mobile phone subscriptions (per 100 people) |
+| Agric\_employ\_perc | Employment in agriculture (% of total employment) |
+| Servi\_employ\_perc | Employment in services (% of total employment) |
+| Employment_rat | Employment to population ratio (% ages 15 and older) |
+| Continent | Continent |
+
+The country names are the row names of `HDI` and can be recovered by
+
+```{r}
+country <- row.names(HDI)
+```
+
+## 1. Dimensionality reduction (2 points out of 10)
+
+Let X be the data matrix with columns 2 to 11 of `HDI`:
+
+```{r}
+X <- as.matrix(HDI[,2:11])
+```
+Do dimensionality reduction of the columns of XX, from 10 dimesnions to q=1q=1, in two different ways:
+
+**1.1** Computing the principal curve (as defined by Hastie and Stuetzle, 1989). Select the tuning parameter by using the local continuity meta criteria (with K′=5K′=5). Choose `df` in `seq(15,25,by=2)`
+
+```{r}
+library(princurve)
+library(stops)
+```
+
+```{r}
+LCMC <- function(D1,D2,Kp=10){
+  D1 <- as.matrix(D1)
+  D2 <- as.matrix(D2)
+  n <- dim(D1)[1]
+  N.Kp.i <- numeric(n)
+  for (i in 1:n){
+    N1.i <- sort.int(D1[i,],index.return = TRUE)$ix[1:Kp]
+    N2.i <- sort.int(D2[i,],index.return = TRUE)$ix[1:Kp]
+    N.Kp.i[i] <- length(intersect(N1.i, N2.i))
+  }
+  N.Kp<-mean(N.Kp.i)
+  M.Kp.adj <- N.Kp/Kp - Kp/(n-1)
+  
+  return(list(N.Kp.i=N.Kp.i, M.Kp.adj=M.Kp.adj))
+}
+```
+
+```{r}
+# principal curve
+Kp <- 5
+DX <- dist(X)
+
+vdf <- seq(15,25,by=2)
+LC.prcv <- numeric(length(vdf))
+
+prcv.df <- vector("list",length(LC.prcv))
+
+for (j in 1:length(vdf)){
+    #prcv.df[[j]] <- principal_curve(prcomp(HDI[, 2:11])$x, df=vdf[j])
+    prcv.df[[j]] <- principal_curve(X, df=vdf[j])
+    D2.j <- dist(prcv.df[[j]]$lambda)
+    LC.prcv[j] <- LCMC(DX,D2.j,Kp)$M.Kp.adj
+}
+
+plot(vdf,LC.prcv,type="b")
+```
+
+```{r}
+j.max <- which.max(LC.prcv)
+df.max <- vdf[j.max] 
+PrCv.max <- prcv.df[[j.max]]
+print(paste0("df.max=",df.max))
+```
+**1.2** Performing local MDS. Select the tuning parameters by using the local continuity meta criteria (with K′=5K′=5). Choose `K` in `seq(3,15,by=2)` and `tau` in `c(.5,1)`.
+
+```{r}
+# local MDS
+Kp <- 5
+# DX <- dist(X)
+
+K <- seq(3,15,by=2)#c(5,10,15)
+tau <- c(.5,1)#c(.1,.5,1)
+q <- 1
+conf0 <- cmdscale(DX, k=q)$points
+
+LC <- matrix(0,nrow=length(K),ncol=length(tau))
+lmds.k.tau <- array(vector("list",1),dim=dim(LC))
+
+init.conf <- conf0
+
+for (i in 1:length(K)){
+  for (j in 1:length(tau)){
+    lmds.k.tau[[i,j]] <- lmds(as.matrix(DX), init=conf0, ndim=q, 
+                              k=K[i], tau=tau[j], itmax = 100)
+    D2.k.tau <- lmds.k.tau[[i,j]]$confdist
+    LC[i,j] <- LCMC(DX,D2.k.tau,Kp)$M.Kp.adj
+    #print(c(i,j,LC[i,j]))
+  }
+}
+
+ij.max <- arrayInd(which.max(LC),.dim=dim(LC))
+k.max <- K[ij.max[1]] 
+tau.max <- tau[ij.max[2]] 
+lmds.max <- lmds.k.tau[[ij.max[1],ij.max[2]]]
+lmds.LC.max <- LC[ij.max]
+
+print(paste0("Local MDS: k.max=",k.max,", tau.max=",tau.max, ",LC(k.max,tau.max)=",LC[ij.max]))
+```
+
+**1.3** Do a pairs plot (that is, a matrix of scatterplots) of the matrix having the following 4 columns:
+- `HDI$HDI`
+- First principal component of XX
+- 1-dimensional configuration obtained by principal curves.
+- 1-dimensional configuration obtained by local MDS.
+
+```{r}
+aux <- cbind(HDI$HDI, prcomp(X)$x[,1],PrCv.max$lambda,lmds.max$conf)
+colnames(aux) <- c("HDI", "PC.1", "PrCv", "lmds.1")
+pairs(aux)
+```
+
+**1.4** Comment your results
+
+```{r}
+# The HDI is defined in such a way it represents a summary of all the 
+# measurable variables indicating "human development", in some way.
+# This objective can also be reached by using any dimensionality reduction
+# method, as PC, principal curves or local MDS.
+# Then it is natural that these 4 variables are highly correlated.
+```

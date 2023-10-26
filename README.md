@@ -1,6 +1,7 @@
 # Advanced Multivariate Analysis
 
 ## Content
+
 - [Density Estimation Example Code](./01_density_estimation/)
 - [Density Estimation Assignment](./01_assignment/)
 - [Clustering Example Code](./02_clustering/)
@@ -12,4 +13,5 @@
 - [t-SNE](./03_t-SNE/)
 - [Dimensionality Reduction Assignment](./03_assignment/)
 - [Non-Parametric Regression](./04_non_parametric_regression/)
-- 
+
+- [Final Exam 2023](./final_exam_practice/)

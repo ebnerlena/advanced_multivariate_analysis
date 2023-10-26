@@ -1,0 +1,638 @@
+---
+title: "Final Exam AMA-DS, January 2023. Practice"
+author: "Pedro Delicado"
+output:
+  html_document:
+    number_sections: yes
+  html_notebook: null
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+
+# Human Development Index
+
+In the HDI.Rdata file you will find some data published by the UNITED NATIONS DEVELOPMENT PROGRAM in its Human Development Report corresponding to the year 2017. After reading this file with
+
+```{r}
+load("HDI.Rdata")
+```
+
+you will find the data frame `HDI` with the following the following variables:
+
+  
+| Variable | Description |
+| --- | --- |
+| HDI | Human Development Index (HDI) |
+| Median_age | Median age (years) |
+| Old\_age\_dep_rat | Old-age (65 and older) dependency ratio (per 100 people ages 15-64) |
+| Exp\_years\_school | Expected years of schooling (years) |
+| Life_expec | Life expectancy at birth (years) |
+| Inf\_Mort\_rat | Mortality rate, infant (per 1,000 live births) |
+| log\_GDP\_per_cap | logarithm of the Gross domestic product (GDP) per capita (PPP $: international dollars with purchasing power parity) |
+| Mob\_phon\_100_peopl | Mobile phone subscriptions (per 100 people) |
+| Agric\_employ\_perc | Employment in agriculture (% of total employment) |
+| Servi\_employ\_perc | Employment in services (% of total employment) |
+| Employment_rat | Employment to population ratio (% ages 15 and older) |
+| Continent | Continent |
+
+The country names are the row names of `HDI` and can be recovered by
+
+```{r}
+country <- row.names(HDI)
+```
+
+## 1. Dimensionality reduction (2 points out of 10)
+
+Let X be the data matrix with columns 2 to 11 of `HDI`:
+
+```{r}
+X <- as.matrix(HDI[,2:11])
+```
+Do dimensionality reduction of the columns of XX, from 10 dimesnions to q=1q=1, in two different ways:
+
+**1.1** Computing the principal curve (as defined by Hastie and Stuetzle, 1989). Select the tuning parameter by using the local continuity meta criteria (with K′=5K′=5). Choose `df` in `seq(15,25,by=2)`
+
+```{r}
+library(princurve)
+library(stops)
+```
+
+```{r}
+LCMC <- function(D1,D2,Kp=10){
+  D1 <- as.matrix(D1)
+  D2 <- as.matrix(D2)
+  n <- dim(D1)[1]
+  N.Kp.i <- numeric(n)
+  for (i in 1:n){
+    N1.i <- sort.int(D1[i,],index.return = TRUE)$ix[1:Kp]
+    N2.i <- sort.int(D2[i,],index.return = TRUE)$ix[1:Kp]
+    N.Kp.i[i] <- length(intersect(N1.i, N2.i))
+  }
+  N.Kp<-mean(N.Kp.i)
+  M.Kp.adj <- N.Kp/Kp - Kp/(n-1)
+  
+  return(list(N.Kp.i=N.Kp.i, M.Kp.adj=M.Kp.adj))
+}
+```
+
+```{r}
+# principal curve
+Kp <- 5
+DX <- dist(X)
+
+vdf <- seq(15,25,by=2)
+LC.prcv <- numeric(length(vdf))
+
+prcv.df <- vector("list",length(LC.prcv))
+
+for (j in 1:length(vdf)){
+    #prcv.df[[j]] <- principal_curve(prcomp(HDI[, 2:11])$x, df=vdf[j])
+    prcv.df[[j]] <- principal_curve(X, df=vdf[j])
+    D2.j <- dist(prcv.df[[j]]$lambda)
+    LC.prcv[j] <- LCMC(DX,D2.j,Kp)$M.Kp.adj
+}
+
+plot(vdf,LC.prcv,type="b")
+```
+
+```{r}
+j.max <- which.max(LC.prcv)
+df.max <- vdf[j.max] 
+PrCv.max <- prcv.df[[j.max]]
+print(paste0("df.max=",df.max))
+```
+
+**1.2** Performing local MDS. Select the tuning parameters by using the local continuity meta criteria (with K′=5K′=5). Choose `K` in `seq(3,15,by=2)` and `tau` in `c(.5,1)`.
+
+```{r}
+# local MDS
+Kp <- 5
+# DX <- dist(X)
+
+K <- seq(3,15,by=2)#c(5,10,15)
+tau <- c(.5,1)#c(.1,.5,1)
+q <- 1
+conf0 <- cmdscale(DX, k=q)$points
+
+LC <- matrix(0,nrow=length(K),ncol=length(tau))
+lmds.k.tau <- array(vector("list",1),dim=dim(LC))
+
+init.conf <- conf0
+
+for (i in 1:length(K)){
+  for (j in 1:length(tau)){
+    lmds.k.tau[[i,j]] <- lmds(as.matrix(DX), init=conf0, ndim=q, 
+                              k=K[i], tau=tau[j], itmax = 100)
+    D2.k.tau <- lmds.k.tau[[i,j]]$confdist
+    LC[i,j] <- LCMC(DX,D2.k.tau,Kp)$M.Kp.adj
+    #print(c(i,j,LC[i,j]))
+  }
+}
+
+ij.max <- arrayInd(which.max(LC),.dim=dim(LC))
+k.max <- K[ij.max[1]] 
+tau.max <- tau[ij.max[2]] 
+lmds.max <- lmds.k.tau[[ij.max[1],ij.max[2]]]
+lmds.LC.max <- LC[ij.max]
+
+print(paste0("Local MDS: k.max=",k.max,", tau.max=",tau.max, ",LC(k.max,tau.max)=",LC[ij.max]))
+```
+
+**1.3** Do a pairs plot (that is, a matrix of scatterplots) of the matrix having the following 4 columns:
+- `HDI$HDI`
+- First principal component of XX
+- 1-dimensional configuration obtained by principal curves.
+- 1-dimensional configuration obtained by local MDS.
+
+```{r}
+aux <- cbind(HDI$HDI, prcomp(X)$x[,1],PrCv.max$lambda,lmds.max$conf)
+colnames(aux) <- c("HDI", "PC.1", "PrCv", "lmds.1")
+pairs(aux)
+```
+
+**1.4** Comment your results
+
+```{r}
+# The HDI is defined in such a way it represents a summary of all the 
+# measurable variables indicating "human development", in some way.
+# This objective can also be reached by using any dimensionality reduction
+# method, as PC, principal curves or local MDS.
+# Then it is natural that these 4 variables are highly correlated.
+```
+
+## 2. Nonparametric regression (2.5 points out of 10)
+
+**2.1** Do the scatterplot of y=y=`Old_age_dep_rat` against x=x=`Median_age`. Do yout think there are some countries which could be considered outliers?
+```{r}
+plot(HDI$Median_age,HDI$Old_age_dep_rat)
+```
+
+```{r}
+plot(HDI$Median_age,HDI$Old_age_dep_rat)
+text(HDI$Median_age,HDI$Old_age_dep_rat,country)
+```
+
+**2.2** To identify those possible outliers, fit a simple nonparametric regression model of `Old_age_dep_rat` as a function of `Median_agey`. Use smoothing splines with degrees of freedom chosen by Generalized Cross Validation.
+
+```{r}
+library(mgcv)
+```
+
+```{r}
+gam1 <- gam(Old_age_dep_rat~s(Median_age),data=HDI)
+summary(gam1)
+```
+
+```{r}
+plot(gam1, residuals=TRUE, cex=4)
+```
+```{r}
+# another alternative: using smooth.spline()
+sm.spl.1 <- smooth.spline(HDI$Median_age,HDI$Old_age_dep_rat)
+```
+
+**2.3** Once you have fitted this model, which is the estimated value σ^σ^ of the residual standard deviation?
+If this estimation is not included in the fitted smoothing spline object, you can compute it from the residuals. If the residuals are not directly available, you can use the functions `fitted` to compute the fitted values of your estimated model and use them to compute residuals.
+
+```{r}
+(sig <- sqrt(gam1$sig2))
+```
+```{r}
+# another alternative: using smooth.spline()
+n<- dim(HDI)[1]
+fitted_values <- fitted(sm.spl.1)
+resids <- HDI$Old_age_dep_rat - fitted_values
+(sig_spl <- sqrt(sum(resids^2)/(n-sm.spl.1$df)))
+```
+
+**2.4** Add to the scatterplot of y=y=`Old_age_dep_rat` against x=x=`Median_age` the following elements:
+- the points with coordinates x=x=`Median_age` and y=y=the fitted values.
+- the points with coordinates x=x=`Median_age` and y=y= the fitted values +/−1.96σ^+/−1.96σ^.
+- the names of the countries for which the absolute value of the residuals are larger than 1.96 σ^1.96 σ^. These points are those you can consider outliers.
+
+```{r}
+plot(HDI$Median_age,HDI$Old_age_dep_rat)
+points(HDI$Median_age,gam1$fitted.values,col=2, pch=19)
+points(HDI$Median_age,gam1$fitted.values-1.96*sig,col=4, pch="+")
+points(HDI$Median_age,gam1$fitted.values+1.96*sig,col=4, pch="+")
+I_res_neg <- which(gam1$fitted.values-1.96*sig>HDI$Old_age_dep_rat)
+I_res_pos <- which(gam1$fitted.values+1.96*sig<HDI$Old_age_dep_rat)
+text(HDI$Median_age[I_res_neg],HDI$Old_age_dep_rat[I_res_neg],
+     country[I_res_neg], pos=4)
+text(HDI$Median_age[I_res_pos],HDI$Old_age_dep_rat[I_res_pos],
+     country[I_res_pos], pos=2)
+```
+```{r}
+country[I_res_neg]
+```
+
+
+```{r}
+country[I_res_pos]
+```
+
+
+```{r}
+# another alternative: using smooth.spline()
+plot(HDI$Median_age,HDI$Old_age_dep_rat)
+points(HDI$Median_age,fitted_values,col=2, pch=19)
+points(HDI$Median_age,fitted_values-1.96*sig_spl,col=4, pch="+")
+points(HDI$Median_age,fitted_values+1.96*sig_spl,col=4, pch="+")
+I_res_neg <- which(fitted_values-1.96*sig_spl>HDI$Old_age_dep_rat)
+I_res_pos <- which(fitted_values+1.96*sig_spl<HDI$Old_age_dep_rat)
+text(HDI$Median_age[I_res_neg],HDI$Old_age_dep_rat[I_res_neg],
+     country[I_res_neg], pos=4)
+text(HDI$Median_age[I_res_pos],HDI$Old_age_dep_rat[I_res_pos],
+     country[I_res_pos], pos=2)
+```
+```{r}
+country[I_res_neg]
+```
+
+```{r}
+country[I_res_pos]
+```
+
+**2.5** Could you provide any explanation why those countries are outliers?
+
+```{r}
+# There are 7 countries with very low "Old age dependence ratio":
+## [1] "United Arab Emirates" "Bahrain"              "Korea (Republic of)" 
+## [4] "Kuwait"               "Oman"                 "Qatar"               
+## [7] "Singapore"
+#
+# Five of them are in the Persian Gulf. They are those with lowest median age (around 30 years).
+# They are young countries in median with very few old people. 
+# Probably foreign immigration could explain these facts.
+# The other two countries are well developed Asian countries: South Korea and Singapore. 
+#
+# There are 4 countries with unusually high "Old age dependence ratio":
+## [1] "Argentina" "Israel"    "Japan"     "Uruguay"
+#
+# Japan is the most aged country in the data set: a median age over 45 years. 
+# The other three countries have median age in 30-35 years.
+```
+
+## 3. Functional data analysis (2.5 points out of 10)
+
+The Rdata file `HDI_series.Rdata` contains the data frame `HDI_series`, with rows corresponding to the 134 countries (the row names of `HDI_series` are the country names). The 32 columns of `HDI_series` correspond to years 1990 to 2021. The entry (i,j)(i,j) of `HDI_series` is the value of HDI for country ii at year jj.
+(Note: The source of data of `HDI` and `HDI_series` are different. Then the values of `HDI_series` for year 2017 do not coincide exactly with those of `HDI$HDI`)
+
+**3.1** Transform the data in `HDI_series` into a functional data set, with countries as individuals and years as argument of the functions:
+
+- First, transform the raw data to a `fdata`object.
+- Then, smooth the raw functional data in an optimal way using generalized cross-validation and local linear smoothing.
+
+Call `HDI_LL` to the smoothed functional data.
+
+```{r}
+load("HDI_series.Rdata")
+library(fda.usc)
+years <- 1990:2021
+HDI.fdata <- fdata(mdata=as.matrix(HDI_series), argvals = years, 
+                      rangeval = range(years), 
+                      names = list(main="HDI 1990-2021",
+                                   xlab="Year",ylab="HDI"))
+
+HDI.LLR <- optim.np(HDI.fdata, type.S = S.LLR)
+
+plot(HDI.LLR$h,HDI.LLR$gcv,type="b")
+abline(v=HDI.LLR$h.opt,col=2)
+text(HDI.LLR$h.opt,min(HDI.LLR$gcv),
+      paste("h.opt=",round(HDI.LLR$h.opt,2)),
+      pos=3,col=2)
+```
+
+```{r}
+HDI_LL <- HDI.LLR$fdata.est
+plot(HDI_LL)
+```
+
+**3.2** Do descriptive statistics of `HDI_LL` (mean, median and standard deviation functions).
+(Note: If you have not found `HDI_LL` then use the raw data functional data set)
+
+```{r}
+plot(HDI_LL, col=8)
+plot(func.mean(HDI_LL),add=TRUE,lwd=4,col=2)
+plot(func.med.FM(HDI_LL),add=TRUE,lwd=4,col=4)
+legend("bottomright",c("mean","median FM"),lwd=4,col=c(2,4),cex=1)
+```
+
+```{r}
+plot(sqrt(func.var(HDI_LL)))
+```
+
+```{r}
+plot(HDI_LL, col=8)
+plot(func.mean(HDI_LL),add=TRUE,lwd=4,col=2)
+plot(func.mean(HDI_LL)+1*sqrt(func.var(HDI_LL)),add=TRUE,lwd=4,col=6,lty=2)
+plot(func.mean(HDI_LL)-1*sqrt(func.var(HDI_LL)),add=TRUE,lwd=4,col=6,lty=2)
+legend("bottomright",c("mean","mean +/- stdev"),lwd=4,col=c(2,6), lty=c(1,2),cex=1)
+```
+
+**3.3** Look for outliers in the functional data set `HDI_LL`.
+(Note: If you have not found `HDI_LL` then use the raw data functional data set)
+
+```{r}
+outl_HDI_LL.mode <- outliers.depth.pond(HDI_LL, nb = 200, dfunc = depth.mode)
+outl_HDI_LL.mode$outliers
+```
+
+```{r}
+# No outliers found!
+```
+
+```{r}
+outl_HDI_LL.FM <- outliers.depth.pond(HDI_LL, nb = 200, dfunc = depth.FM)
+outl_HDI_LL.FM$outliers
+```
+
+```{r}
+# No outliers found!
+```
+
+**3.4** Perform Functional PCA on `HDI_LL` and try to give an interpretation of the first two principal functions.
+(Note: If you have not found `HDI_LL` then use the raw data functional data set)
+
+```{r}
+fd_HDI_LL <- fdata2fd(HDI_LL)
+fpcaHDIfd <- pca.fd(fd_HDI_LL)
+par(mfrow=c(1,2))
+plot(fpcaHDIfd)
+```
+
+```{r}
+par(mfrow=c(1,1))
+
+fpcaHDI <- fdata2pc(HDI_LL)
+summary(fpcaHDI)
+```
+
+**3.5** Do the scatterplot of the scores on the first two principal functions, adding the country name to each point. Comment your results.
+
+```{r}
+plot(fpcaHDIfd$scores)
+text(fpcaHDIfd$scores[,1], fpcaHDIfd$scores[,2], 
+     rownames(HDI_series))
+```
+
+```{r}
+plot(fpcaHDI$x)
+text(fpcaHDI$x[,1], fpcaHDI$x[,2], 
+     rownames(HDI_series))
+```
+
+```{r}
+# 1st FPC: Index of Human Development:
+plot(fpcaHDI$x[,1],HDI_series[,32])
+```
+```{r}
+#  Less developed countries: Niger, Mozambique, Burundi, Central African Republic, ...
+#  Most developed countries: Norway, Switzerland, Sweden, Australia, USA, ...
+# 2nd FPC: Speed of development growth: 
+# Most slow development: Leshoto, Libia, Eswatini, Namibia, Central African Republic, ...   
+# Most fast development: China, Turkey, Myanmar, Singapore, ...
+```
+
+## 4. Interpretable Machine Learning (2 points out of 10)
+
+Consider the problem of predicting `HDI$HDI` from the rest of variables in the data frame `HDI`.
+
+**4.1** Found the gam model you consider the best one to explain `HDI$HDI` from the rest of variables in the data frame `HDI`. Call if `gamHDI`.
+
+```{r}
+gam1 <- gam(HDI~
+              s(Median_age) + 
+              s(Old_age_dep_rat) + 
+              s(Exp_years_school) + 
+              s(Life_expec) + 
+              s(Inf_Mort_rat) + 
+              s(log_GDP_per_cap,by=Continent) + 
+              s(Mob_phon_100_peopl) + 
+              s(Agric_employ_perc) + 
+              s(Servi_employ_perc) + 
+              s(Employment_rat) + 
+              Continent,
+            data=HDI)
+summary(gam1)
+```
+
+```{r}
+gam2 <- gam(HDI~
+              s(Old_age_dep_rat) + 
+              s(Exp_years_school) + 
+              Life_expec + 
+              s(log_GDP_per_cap,by=Continent) + 
+              s(Mob_phon_100_peopl) + 
+              Agric_employ_perc*Continent + 
+              s(Employment_rat,by=Continent) + 
+              Continent,
+            data=HDI)
+summary(gam2)
+```
+```{r}
+plot(gam2)
+```
+
+```{r}
+gam3 <- gam(HDI~
+              s(Old_age_dep_rat) + 
+              s(Exp_years_school) + 
+              Life_expec + 
+              s(log_GDP_per_cap) + 
+              Agric_employ_perc*Continent + 
+              s(Employment_rat,by=Continent) + 
+              Continent,
+            data=HDI)
+summary(gam3)
+```
+```{r}
+anova(gam3,gam2,test="F")
+```
+
+```{r}
+gam4 <- gam(HDI~
+              s(Old_age_dep_rat) + 
+              s(Exp_years_school) + 
+              Life_expec + 
+              s(log_GDP_per_cap) + 
+              Continent,
+            data=HDI)
+summary(gam4)
+```
+
+```{r}
+gamHDI <- gam4
+```
+
+**4.2** Fit a random forest to explain `HDI$HDI` from the rest of variables in the data frame `HDI`. Call if `rfHDI`.
+
+```{r}
+library(ranger)
+library(randomForest)
+library(caret)
+library(vip)
+library(DALEX)
+library(DALEXtra)
+library(lime)
+library(iml)
+library(localModel)
+# library(fastshap) # Attention! It re-define "explain" from DALEX
+```
+
+```{r}
+rfHDI <- ranger(
+  HDI ~ .,
+  data = HDI, 
+  importance='impurity'
+)
+print(rfHDI)
+```
+
+**4.3** Compute the relevance of each explanatory variable by Shapley values at both models, `gamHDI` and `rfHDI`. Comment your results.
+
+```{r}
+rf_imp <- vip(rfHDI, num_features = 11)
+rf_shapley <- vip(rfHDI, method="shap",
+                  pred_wrapper=yhat, num_features = 11,
+                  newdata=HDI[,-1]) # Package "fastshap" needed for this function to work
+gam_shapley <- vip(gamHDI, method="shap",
+                  pred_wrapper=predict.gam, 
+                  num_features = 11,
+                  newdata=HDI[,-1],
+                  exact=TRUE) # Package "fastshap" needed for this function to work
+
+grid.arrange(rf_imp, rf_shapley, gam_shapley,
+             ncol=2, nrow=2,
+             top="Top left: RF Impurity. Top right: RF Shapley values. Bottom left: GAM Shapley values"
+            )
+```
+
+**4.4** Consider these two countries: Spain and Qatar. For each of them, provide local explanations for the predicted values when using the random forest `rfHDI` (choose the explanatory methods that you consider most appropriate.) Comment your results.
+
+```{r}
+# Using library DALEX
+# help(package="DALEX")
+# ? explain
+explainer_rf <- explain.default(model = rfHDI, data = HDI[, -1], y = HDI[,1], 
+                               label = "Random Forest")
+```
+
+```{r}
+aux <- which(country=="Spain")
+(Spain <- HDI[aux,])
+```
+
+```{r}
+aux <- which(country=="Qatar")
+(Qatar <- HDI[aux,])
+```
+
+```{r}
+## SHAP 
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = Spain,
+                            type = "shap")
+
+bd_rf
+```
+```{r}
+plot(bd_rf)
+```
+```{r}
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = Qatar,
+                            type = "shap")
+
+bd_rf
+```
+```{r}
+plot(bd_rf)
+```
+
+```{r}
+## Break-down plots
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = Spain,
+                            type = "break_down")
+
+bd_rf
+```
+
+```{r}
+plot(bd_rf)
+```
+
+```{r}
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = Qatar,
+                            type = "break_down")
+
+bd_rf
+```
+
+```{r}
+plot(bd_rf)
+```
+
+## LIME
+
+```{r}
+lime_rf <- predict_surrogate(explainer = explainer_rf, 
+                  new_observation = Spain[,-1], 
+                  type = "localModel")
+                  #type = "iml") # it does not work
+                  #n_features = 6, 
+                  #n_permutations = 1000,
+                  #type = "lime") # it does not work
+
+lime_rf 
+```
+
+```{r}
+plot(lime_rf)
+```
+
+```{r}
+lime_rf <- predict_surrogate(explainer = explainer_rf, 
+                  new_observation = Qatar[,-1], 
+                  type = "localModel")
+                  #type = "iml") # it does not work
+                  #n_features = 6, 
+                  #n_permutations = 1000,
+                  #type = "lime") # it does not work
+
+lime_rf
+```
+
+```{r}
+plot(lime_rf)
+```
+
+```{r}
+## Local Graphics
+### Individual conditional expectation (ICE) plot, or ceteris paribus plot
+
+cp_rf <- predict_profile(explainer = explainer_rf, 
+                           new_observation = Spain)
+cp_rf
+```
+
+```{r}
+plot(cp_rf)
+```
+
+
+```{r}
+cp_rf <- predict_profile(explainer = explainer_rf, 
+                           new_observation = Qatar)
+cp_rf
+```
+
+
+```{r}
+plot(cp_rf)
+```
+
