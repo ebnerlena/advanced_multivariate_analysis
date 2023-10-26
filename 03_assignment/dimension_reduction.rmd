@@ -393,7 +393,7 @@ abline(v=k_max,col=2)
 
 ```{r}
 best_k_isomap <- isomap(D1, ndim=q,  k=k_max)
-pairs(cbind(best_k_isomap$points[,1], best_k_isomap$points[,2] ,lambda=best_k_isomap$points[,1]), pch=20, main="Best ISOMAP output in 2-dim")
+pairs(cbind(data[,1:2] ,isomap=best_k_isomap$points[,1:2]), pch=20, main="Best ISOMAP output in 2-dim")
 
 plot(best_k_isomap$points[,1], best_k_isomap$points[,2], pch=20, main="Best ISOMAP output in 2-dim", as=1)
 text(best_k_isomap$points[,1], best_k_isomap$points[,2], rownames(data),pos=3, cex=.5)
@@ -478,7 +478,7 @@ abline(v=perplexity[i.max],col=2)
 ```
 
 ```{r}
-pairs(cbind(best_rtsne$Y[,1], best_rtsne$Y[,2] ,lambda=best_rtsne$Y[,1]), pch=20, main="Best t-SNE output in 2-dim")
+pairs(cbind(data[,1:2] ,tsne=best_rtsne$Y[,1:2]), pch=20, main="Best t-SNE output in 2-dim")
 ```
 
 ### 4. Compare Local MDS, ISOMAP and t-SNE for ZERO digits
