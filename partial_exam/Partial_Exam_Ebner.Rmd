@@ -75,13 +75,14 @@ sm.density(X,h=0.15*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
 
 ```{r}
 a_values <- seq(0.15,.3,by=0.025)
+na <- length(a_values)
 logLCVa <- numeric(length(a_values))
 
 looCV_log__lik=list()
 
 n <- dim(X)[1]
 
-for (j in 1:a_values){
+for (j in 1:na) {
   a <- a_values[j]
   for (i in 1:n){
     new.point <- matrix(X[i,],ncol=2)
@@ -92,7 +93,9 @@ for (j in 1:a_values){
   }
 }
 
-plot(a_values,logLCVa, type="b")
+a_loo <- a_values[which.max(logLCVa)]
+plot(a_values,logLCVa,type="b", main=paste("a_loo=",a_loo))
+abline(v=a_loo,col=2)
 ```
 
 ```{r}
@@ -101,9 +104,15 @@ print(paste("best b (LOOCV)",best))
 ```
 
 ```{r}
+plot(x,y,col="gray", asp=1)
 plot(X,col=8)
-sm.density(X,h=best*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
+sm.density(X,h=best*c(1,1),display="slice",col=2,add=TRUE)
+sm.density(X, h=best*c(1,1), display="slice", add=TRUE, col="red", props=95)
 ```
+
+```{r}
+sm.density(X, h=a_loo*c(1,1), display="persp")
+``` 
 
 ##  Fitting a GMM. (2 points out of 10)
 
