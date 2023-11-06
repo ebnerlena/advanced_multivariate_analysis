@@ -27,7 +27,7 @@ Here you have the **logarithm of annual increase in expected life length** for y
 
 ```{r}
  #load data
-load("./ExamOctober2023.Rdata")
+load("/home/le/Dev/advanced_multivariate_analysis/lab/partial_exam/ExamOctober2023.Rdata")
 head(LE)
 ```
 
@@ -98,6 +98,7 @@ plot(a_values,logLCVa,type="b", main=paste("a_loo=",a_loo))
 abline(v=a_loo,col=2)
 ```
 
+
 ```{r}
 best=a_values[which.max(logLCVa)]
 print(paste("best b (LOOCV)",best))
@@ -109,10 +110,9 @@ plot(X,col=8)
 sm.density(X,h=best*c(1,1),display="slice",col=2,add=TRUE)
 sm.density(X, h=best*c(1,1), display="slice", add=TRUE, col="red", props=95)
 ```
-
 ```{r}
 sm.density(X, h=a_loo*c(1,1), display="persp")
-``` 
+```
 
 ##  Fitting a GMM. (2 points out of 10)
 
@@ -130,13 +130,26 @@ library(cluster)
 
 rng=2:6
 X <- cbind(x,y)
-GMM <- Mclust(as.matrix(X), k=3, modelNames = "VVV")
+GMM <- Mclust(as.matrix(X), parameters=TRUE)
 
-plot(GMM, what="BIC")
+clust.ind <- GMM$classification
+summary(GMM,parameters=TRUE)
+```
 
-plot(GMM, what="classification")
+```{r}
+plot(GMM, what="BIC",asp=1)
+```
 
-plot(GMM, what="density")
+```{r}
+plot(GMM, what="classification",asp=1)
+```
+
+```{r}
+plot(GMM, what="density",asp=1)
+```
+
+```{r}
+plot(GMM, what="uncertainty",asp=1)
 ```
 
 - How many mixture components have the fitted model?
@@ -145,9 +158,17 @@ summary(GMM,parameters=TRUE)
 
 # the fitted model has 2 mixture components
 ```
+
+
 - Have the different components the same variance matrices?
 ```{r}
-# as seen above the the components have different variance matrices
+# The fitted GMM by Mclust is EVV (ellipsoidal, equal volume)
+# indicates that the two variance matrices have equal volume (proportional of the product of their eigenvalues)
+# varying shape (different the ratio of eigenvalues)
+# varying orientation (eigenvectors in both matrices ar not parallel)
+# # Therefore, the variance matrices are different. 
+
+# As seen above the the components have different variance matrices
 # Variances:
 # [,,1]
 #            [,1]       [,2]
@@ -162,23 +183,46 @@ summary(GMM,parameters=TRUE)
 ```{r}
 par(mfrow = c(1, 2))
 
-plot(GMM, what="density", sub="Mclust density estimation", col=2)
-points(X, col = "grey")
+plot(GMM, what="density", sub="Mclust density estimation", asp=1, col=2)
+points(x,y, col = "grey")
 
 plot(X, sub="GMM density estimation", col = "grey")
-sm.density(X,h=best*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
+sm.density(X,h=best*c(1,1),display="slice",props=c(50,75,95),col=2,add=TRUE)
 ```
+```{r}
+#
+# The GMMM is unimodal, but the non-parametric density is 3-modal.
+# Other characteristics are similar in both estimations.
+```
+
 - Could you give an interpretation of the clusters identified by the fitted GMM? Mentions some countries belonging to each cluster.
 ```{r}
-plot(GMM, what="classification")
+plot(GMM, what="classification", asp=1, xlab="scale(LE[,1])",ylab="scale(lgDifLE[,15])")
 points(X)
 text(X[,1], X[,2], rownames(X), pos = 3, cex = .7)
 
 # there are 2 clusters
-
-
 ```
 
+```{r}
+#Some countries ate each cluster
+# Blue cluster
+Icl1 <- which(y<=-2)
+cat("\n \n Blue cluster\n")
+CtryName[Icl1]
+# Countries with high Life Expectancy at birth, larger than 82 years. So all the yearly increment of LE are small. 
+# For age=15 this increment are lower than 0.4 years for the selected countries.
+```
+
+```{r}
+# Red cluster
+Icl2 <- which(x<=-2)
+cat("\n \n Red cluster\n")
+cat("\n \n Red cluster\n")
+# Countries with low Life Expectancy at birth, lower than 57 years. 
+# So the yearly increment of LE are large, in particular for age=15. 
+# this increment are larger than 3.7 years for the selected countries except one (which has 2.2 years).
+```
 
 ## Db scan
 
@@ -189,7 +233,7 @@ epsilon <- 0.25
 minPts <- 4
 
 dbscan_result <- fpc::dbscan(X, eps = epsilon, MinPts = minPts, showplot = 0)
-plot(dbscan_result, x, main = sprintf("DBSCAN eps=%.2f minPts=%d", epsilon, minPts), frame = FALSE)
+plot(dbscan_result, x, main = sprintf("DBSCAN eps=%.2f minPts=%d", epsilon, minPts), frame = FALSE, xlab="x",ylab="y")
 
 # 4 clusters have been detected by dbcscan
 ```
@@ -201,78 +245,92 @@ dbscan_result
 
 # 22 outliers have been detected bz dbscan
 ```
+
 - Which is the relationship between the clusters identified by Dbscan and those identified by GMM?
 
 ```{r}
+op<-par(mfrow=c(1,2))
+plot(GMM, what="classification",asp=1, main="GMM",
+     xlab="scale(LE[,1])",ylab="scale(lgDifLE[,15])")
+plot(X, col=dbscan_result$cluster+1, pch=dbscan_result$cluster+1, 
+     main="dbscan",
+     xlab="scale(LE[,1])",ylab="scale(lgDifLE[,15])",asp=1)
+```
 
+```{r}
+par(op)
+
+table(dbscan_result$cluster,GMM$classification)
+# There is no a perfect coincidence between both clustering methods
 ```
 
 ## Dimensionality reduction (3 points out of 10)
-
-
-```{r}
-LCMC <- function(D1,D2,Kp){
-  D1 <- as.matrix(D1)
-  D2 <- as.matrix(D2)
-  n <- dim(D1)[1]
-  N.Kp.i <- numeric(n)
-  for (i in 1:n){
-    N1.i <- sort.int(D1[i,],index.return = TRUE)$ix[1:Kp]
-    N2.i <- sort.int(D2[i,],index.return = TRUE)$ix[1:Kp]
-    N.Kp.i[i] <- length(intersect(N1.i, N2.i))
-  }
-  N.Kp<-mean(N.Kp.i)
-  M.Kp.adj <- N.Kp/Kp - Kp/(n-1)
-  
-  return(list(N.Kp.i=N.Kp.i, M.Kp.adj=M.Kp.adj))
-}
-```
 
 Consider the data matrix lgDifLE. Do dimensionality reduction of the columns of lgDifLE, from 100 dimensions to \(q=1\), in two different ways:
 
 **4.1** Using ISOMAP. Choose epsilon in seq(7, 12,by=1) as the value maximizing the correlation between the distance matrices in high and low dimensioal spaces.
 
-```{r, warning=FALSE}
+```{r}
+Dlg <- dist(lgDifLE)
+
+q<-1
+
 library(vegan)
+epsilon <- seq(7, 12,by=1)
 
-epsilons <- seq(7, 12,by=1)
-q=1
-D1 <- dist(lgDifLE)
-LC.ismp <- numeric(length(epsilons))
+corr.dists <- array(0,dim=length(epsilon))
+isomap.eps <- array(vector("list",1),dim=dim(corr.dists))
 
-isomap_results <- vector("list",length(epsilons))
-
-for (i in 1:length(epsilons)){
-   eps <- epsilons[i]
-   isomap_results[[i]] <- isomap(D1, ndim=q, eps=eps)
-  dist_eps <- dist(isomap_results[[i]]$points[,1:q])
-  LC.ismp[i] <- LCMC(D1, dist_eps, eps)$M.Kp.adj
+for (i in 1:length(epsilon)){
+  isomap.eps[[i]] <- isomap(as.matrix(Dlg), ndim=q, epsilon=epsilon[i])
+  D2.eps <- dist(isomap.eps[[i]]$points)
+  corr.dists[i] <- cor(Dlg,D2.eps)^2 
+  #print(c(i,j,LC[i,j]))
 }
 
-i_max <- which.max(LC.ismp)
-eps_max <- epsilons[i_max]
-isomap_max <- isomap_results[i_max]
+i.max <- which.max(corr.dists)
+eps.max <- epsilon[i.max] 
+isomap.max <- isomap.eps[[i.max]]
+isomap.corr.dists.max <- corr.dists[i.max]
 
-plot(epsilons, LC.ismp, type="b", main=paste0("eps=",round(eps_max,4)))
-abline(v=eps_max,col=2)
+plot(epsilon,corr.dists, type="b")
+abline(v=eps.max, col=2)
+```
+```{r, warning=FALSE}
+print(paste0("ISOMAP: epsilon.max=",eps.max,", corr.dists(epsilon.max)=",corr.dists[i.max]))
 ```
 
 ```{r}
-best_k_isomap <- isomap(D1, ndim=q,  eps=eps_max)
-pairs(cbind(X[,1:2] ,isomap=best_k_isomap$points[,1]), pch=20, main="Best ISOMAP output in 1-dim")
+pairs(cbind(X[,1:2] ,isomap=isomap.max$points[,1]), pch=20, main="Best ISOMAP output in 1-dim")
 ```
 
 ```{r}
-plot(best_k_isomap$points[,1], pch=20, main="Best ISOMAP output in 1-dim", as=1)
-# todo how to add text
+plot(isomap.max$points,isomap.max$points)
+text(isomap.max$points,isomap.max$points,CtryName, 
+     pos=3-sign(isomap.max$points), cex=.75)
 ```
 
 Select 3 countries located in the low dimensional space in such a way that they cover the variability of all the points in this dimension. Then plot their lgDifLE functions in a graphic as that in page 2.
 
+```{r}
+# Select 3 countries located in the low dimensional space in such a way that they cover the variability of all the points in this dimension.
+imin <- which.min(isomap.max$points)
+imed <- which.min(abs(isomap.max$points -
+                        median(isomap.max$points)))
+imax <- which.max(isomap.max$points)
+i3 <- c(imin,imed,imax)
+matplot(1:100,t(lgDifLE), type="l",  col=8, 
+        xlab="Age",ylab="log-Increase in life expectancy",
+        main="log-Increase in life expectancy, all countries, year 2021",
+        cex.main=.75,cex.lab=.75,cex.axis=.75)
+for (i in 1:3) lines(1:100,lgDifLE[i3[i],],lwd=4, col=i)
+legend("bottomright",CtryName[i3],lwd=4,col=1:3,bty="n")
+```
+
 How do you interpret the dimension obtained with ISOMAP?
 
 ```{r}
-
+# The one-dimentional scores obtained by isomap sorts the countries from those having lower LE(age) and higher lgDifLE(age), to those having gihger LE(age) and lower lgDifLE(age)
 ```
 
 
@@ -284,79 +342,67 @@ D=dist(as.matrix(X))
 
 set.seed(42)
 theta= 0.0
-perp = 50
+perplexity <- seq(10,50,by=10)
 q=1
 
-tsne_out <- Rtsne(D, pca=FALSE, perplexity=perp, theta=theta, q=1)
-
-plot(tsne_out$Y, asp=1, main="t-SNE")
-text(tsne_out$Y[,1], tsne_out$Y[,2], rownames(X), pos = 3, cex = .7)
-```
-
-
-```{r}
-require(Rtsne)
-set.seed(4444)
-
-D1 <- dist(X)
-Kp <- 10
-q <- 2
-theta = 0
-
-perplexity <- seq(10,50,by=10)
-
-LC.tsne <- numeric(length(perplexity))
-Rtsne.k <- vector("list",length(perplexity))
+corr.dists <- array(0,dim=length(perplexity))
+tSNE.perp <- array(vector("list",1),dim=dim(corr.dists))
 
 for (i in 1:length(perplexity)){
-    Rtsne.k[[i]] <- Rtsne(D1, perplexity=perplexity[i], dims=q,
-                          theta=0, pca=FALSE, max_iter = 1000)
-    D2.k <- dist(Rtsne.k[[i]]$Y)
-    LC.tsne[i] <- LCMC(D1,D2.k,Kp)$M.Kp.adj
+  tSNE.perp[[i]] <- Rtsne(D, dims=q, 
+                   perplexity=perplexity[i], 
+                   theta=theta, num_threads = 1)
+    D2.perp <- dist(tSNE.perp[[i]]$Y)
+    corr.dists[i] <- cor(Dlg,D2.perp)^2 
+    #print(c(i,j,LC[i,j]))
 }
 
-i.max <- which.max(LC.tsne)
-perplexity_max <- perplexity[i.max[1]] 
-best_rtsne <- Rtsne.k[[i.max]]
+i.max <- which.max(corr.dists)
+perp.max <- perplexity[i.max] 
+tSNE.max <- tSNE.perp[[i.max]]
+tSNE.corr.dists.max <- corr.dists[i.max]
 
-plot(perplexity,LC.tsne, main=paste0("perplexity max=",perplexity_max))
-abline(v=perplexity[i.max],col=2)
+plot(perplexity,corr.dists, type="b")
+abline(v=perp.max, col=2)
 ```
 
 ```{r}
-pairs(cbind(x=X[,1], y=X[,2] ,tsne=best_rtsne$Y[,1]), pch=20, main="Best t-SNE output in 1-dim")
+print(paste0("tSNE: perplexity.max=",perp.max,", corr.dists(perplexity.max)=",corr.dists[i.max]))
+```
+
+
+```{r}
+plot(tSNE.max$Y,tSNE.max$Y, main="t-SNE")
+text(tSNE.max$Y,tSNE.max$Y,CtryName, #rownames(X)
+     pos=3-sign(tSNE.max$Y), cex=.75)
+```
+
+```{r}
+pairs(cbind(x=X[,1], y=X[,2] ,tsne=tSNE.max$Y[,1]), pch=20, main="Best t-SNE output in 1-dim")
 ```
 - Select 3 countries located in the low dimensional space in such a way that they cover the variability of all the points in this dimension. Then plot their lgDifLE functions in a graphic as that in page 2.
 
 
 ```{r}
-plot(best_rtsne$Y, asp=1, main="t-SNE")
-text(best_rtsne$Y[,1], best_rtsne$Y[,2], rownames(X), pos = 3, cex = .7)
-```
-
-```{r}
-sel_points = c("MT", "ET", "DJ")
-op <- par(mfrow = c(1,3))
-
-for (i in 1:3){
- matplot(1:100,t(lgDifLE), type="l",  col=8, 
+# Select 3 countries located in the low dimensional space in such a way that they cover the variability of all the points in this dimension.
+imin <- which.min(tSNE.max$Y)
+imed <- which.min(abs(tSNE.max$Y -
+                        median(tSNE.max$Y)))
+imax <- which.max(tSNE.max$Y)
+i3 <- c(imin,imed,imax)
+matplot(1:100,t(lgDifLE), type="l",  col=8, 
         xlab="Age",ylab="log-Increase in life expectancy",
         main="log-Increase in life expectancy, all countries, year 2021",
         cex.main=.75,cex.lab=.75,cex.axis=.75)
-
-  i <- which(rownames(lgDifLE)==sel_points[i])
-  lines(1:100,lgDifLE[i,],lwd=4, col=1)
-  legend("bottomright",CtryName[i],lwd=4,col=1,bty="n")
-
-}
+for (i in 1:3) lines(1:100,lgDifLE[i3[i],],lwd=4, col=i)
+legend("bottomright",CtryName[i3],lwd=4,col=1:3,bty="n")
 ```
-
 
 - How do you interpret the dimension obtained with t-SNE?
 
 
 ```{r}
-
+# The one-dimentional scores obtained by tSNE sorts the countries from those having lower LE(age) and higher lgDifLE(age), to those having higher LE(age) and lower lgDifLE(age)
 ```
 
 **4.3** Do a pairs plot (that is, a matrix of scatterplots) of the matrix having the following 4 columns:
@@ -368,10 +414,18 @@ for (i in 1:3){
 Comment on the resulting graphic.
 
 ```{r}
-
 # compare to PCA
-pca_le = princomp(X)$scores
-plot(pca_le, t='n')
-text(pca_le, labels=rownames(X))
+# pca_le = princomp(lgDifLE)$scores[,1]
+# plot(pca_le, pca_le, t='n')
+# text(pca_le,pca_le, labels=rownames(X))
 
+aux <- cbind(LE[,1], princomp(lgDifLE)$scores[,1],isomap.max$points,tSNE.max$Y)
+colnames(aux) <- c("LE_birth", "PC.1", "Isomap", "tSNE")
+pairs(aux)
 ```
+
+```{r}
+# The one-dimentional scores obtained by the three methods (PC1, isomap and tSNE) sorts the countries approximately in the same order as LE at birth. 
+# PC1 is almost equialt to isomap.
+```
+ 
