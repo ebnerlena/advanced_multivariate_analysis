@@ -15,3 +15,4 @@
 - [Non-Parametric Regression](./04_non_parametric_regression/)
 
 - [Final Exam 2023](./final_exam_practice/)
+- [Partial Exam Okt. 2023](./partial_exam/)

@@ -1,0 +1,368 @@
+---
+title: "Midterm Exam AMA-DS, October 2023. Practice3"
+author: 'Ebner Lena'
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Life expectancy. Countries of the World
+LE(age): Life expectancy at exact age \(x\) is defined as follows: The average number of remaining years of life expected by a hypothetical cohort of individuals alive at age \(x\) who would be subject during the remaining of their lives to the mortality rates of a given year. It is expressed as years.
+
+We have downloaded life expectancy at exact age (for ages from 0 to 100 years) for different countries from the web page of United Nations, Department of Economic and Social Affairs, Extra Life Expectancy Division (2022). World Extra Life Expectancy Prospects 2022, Online Edition.
+
+Other functions can be defined from LE(age):
+
+Extra life expectancy: LE(age)-age.
+Annual increase in LE: LE(age)-LE(age-1), for age\(\ge 1\).
+Annual increase in LE, in logarithms: log( LE(age)-LE(age-1) ), for age\(\ge 1\).
+As an example, here we have the life expectancy data of Spain for year 2021:
+
+Here you have the **logarithm of annual increase in expected life length** for year 2021, as functions of age for all the countries in the data set
+
+```{r}
+ #load data
+load("./ExamOctober2023.Rdata")
+head(LE)
+```
+
+```{r}
+matplot(1:100,t(lgDifLE), type="l",  col=8, 
+        xlab="Age",ylab="log-Increase in life expectancy",
+        main="log-Increase in life expectancy, all countries, year 2021",
+        cex.main=.75,cex.lab=.75,cex.axis=.75)
+i <- which(rownames(lgDifLE)=='ES')
+lines(1:100,lgDifLE[i,],lwd=4, col=1)
+legend("bottomright",CtryName[i],lwd=4,col=1,bty="n")
+```
+
+The file `ExamOctober2023.Rdata` contains the following data:
+
+- `LE`, a matrix (countries in rows, age in columns) with life expectancy at exact age
+- `lgDifLE`, a matrix (countries in rows, age in columns) with logarithms of the annual increase in life expectancy.
+- `CtryName`, a vector with the country names.
+- `CtryISO2`, a vector with the 2-digits ISO country codes.
+
+# Questions
+
+## 1. Density estimation (2 points out of 10)
+
+Consider the joint distribution of
+`x=scale(LE[,1])`, `y=scale(lgDifLE[,15])`,
+that is, the joint distribution of the centered and scaled values of the life expectancy at birth and the log-Increase in life expectancy at the age of 15.
+
+Estimate the joint density of \((x,y)\) using a bivariate Gaussian kernel estimator with equal bandwidths in both dimensions, h=a*c(1,1), with `a` chosen by maximum log-likelihood leave-one-out cross-validation in `seq(0.15,.3,by=0.025)`.
+
+Which is the optimal value of `a`?
+Give at least two graphical representations of the estimated density function. When it is possible, add the observed points to the graphics.
+
+```{r}
+x <- scale(LE[,1])
+y <-scale(lgDifLE[,15])
+
+X <- cbind(x,y)
+
+library(sm)
+
+plot(X,col=8)
+sm.density(X,h=0.15*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
+```
+
+```{r}
+a_values <- seq(0.15,.3,by=0.025)
+logLCVa <- numeric(length(a_values))
+
+looCV_log__lik=list()
+
+n <- dim(X)[1]
+
+for (j in 1:a_values){
+  a <- a_values[j]
+  for (i in 1:n){
+    new.point <- matrix(X[i,],ncol=2)
+    f.hat.i <- sm.density(X[-i,],h=a*c(1,1),display="none",eval.grid=FALSE,
+                    eval.points=new.point)$estimate
+    
+     logLCVa[j] <- logLCVa[j] + log(f.hat.i)
+  }
+}
+
+plot(a_values,logLCVa, type="b")
+```
+
+```{r}
+best=a_values[which.max(logLCVa)]
+print(paste("best b (LOOCV)",best))
+```
+
+```{r}
+plot(X,col=8)
+sm.density(X,h=best*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
+```
+
+##  Fitting a GMM. (2 points out of 10)
+
+Consider the previous bivariate data set \((x_i, y_i)\), \(i=1,\ldots,n\), where \(n\) is the number of countries.
+
+- Fit a Gaussian Mixture Model (GMM) to these data choosing the best model by the Bayesian Information Criterion (BIC). Give graphical representations of the estimated model.
+
+
+```{r}
+library(mclust)
+library(sm)
+library(fpc)
+library(ggplot2)
+library(cluster)
+
+rng=2:6
+X <- cbind(x,y)
+GMM <- Mclust(as.matrix(X), k=3, modelNames = "VVV")
+
+plot(GMM, what="BIC")
+
+plot(GMM, what="classification")
+
+plot(GMM, what="density")
+```
+
+- How many mixture components have the fitted model?
+```{r}
+summary(GMM,parameters=TRUE) 
+
+# the fitted model has 2 mixture components
+```
+- Have the different components the same variance matrices?
+```{r}
+# as seen above the the components have different variance matrices
+# Variances:
+# [,,1]
+#            [,1]       [,2]
+# [1,]  0.7467912 -0.5213116
+# [2,] -0.5213116  0.4474711
+# [,,2]
+#            [,1]       [,2]
+# [1,]  0.3729693 -0.2977819
+# [2,] -0.2977819  0.5147658
+```
+- How the estimated density by GMM compares with the non-parametric estimator obtained before?
+```{r}
+par(mfrow = c(1, 2))
+
+plot(GMM, what="density", sub="Mclust density estimation", col=2)
+points(X, col = "grey")
+
+plot(X, sub="GMM density estimation", col = "grey")
+sm.density(X,h=best*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
+```
+- Could you give an interpretation of the clusters identified by the fitted GMM? Mentions some countries belonging to each cluster.
+```{r}
+plot(GMM, what="classification")
+points(X)
+text(X[,1], X[,2], rownames(X), pos = 3, cex = .7)
+
+# there are 2 clusters
+
+
+```
+
+
+## Db scan
+
+- How many clusters are detected by Dbscan, when using epsilon=0.25 and minPts=4?
+```{r}
+library(fpc)
+epsilon <- 0.25
+minPts <- 4
+
+dbscan_result <- fpc::dbscan(X, eps = epsilon, MinPts = minPts, showplot = 0)
+plot(dbscan_result, x, main = sprintf("DBSCAN eps=%.2f minPts=%d", epsilon, minPts), frame = FALSE)
+
+# 4 clusters have been detected by dbcscan
+```
+
+- How many outliers have been detected by Dbscan?
+
+```{r}
+dbscan_result
+
+# 22 outliers have been detected bz dbscan
+```
+- Which is the relationship between the clusters identified by Dbscan and those identified by GMM?
+
+```{r}
+
+```
+
+## Dimensionality reduction (3 points out of 10)
+
+
+```{r}
+LCMC <- function(D1,D2,Kp){
+  D1 <- as.matrix(D1)
+  D2 <- as.matrix(D2)
+  n <- dim(D1)[1]
+  N.Kp.i <- numeric(n)
+  for (i in 1:n){
+    N1.i <- sort.int(D1[i,],index.return = TRUE)$ix[1:Kp]
+    N2.i <- sort.int(D2[i,],index.return = TRUE)$ix[1:Kp]
+    N.Kp.i[i] <- length(intersect(N1.i, N2.i))
+  }
+  N.Kp<-mean(N.Kp.i)
+  M.Kp.adj <- N.Kp/Kp - Kp/(n-1)
+  
+  return(list(N.Kp.i=N.Kp.i, M.Kp.adj=M.Kp.adj))
+}
+```
+
+Consider the data matrix lgDifLE. Do dimensionality reduction of the columns of lgDifLE, from 100 dimensions to \(q=1\), in two different ways:
+
+**4.1** Using ISOMAP. Choose epsilon in seq(7, 12,by=1) as the value maximizing the correlation between the distance matrices in high and low dimensioal spaces.
+
+```{r, warning=FALSE}
+library(vegan)
+
+epsilons <- seq(7, 12,by=1)
+q=1
+D1 <- dist(lgDifLE)
+LC.ismp <- numeric(length(epsilons))
+
+isomap_results <- vector("list",length(epsilons))
+
+for (i in 1:length(epsilons)){
+   eps <- epsilons[i]
+   isomap_results[[i]] <- isomap(D1, ndim=q, eps=eps)
+  dist_eps <- dist(isomap_results[[i]]$points[,1:q])
+  LC.ismp[i] <- LCMC(D1, dist_eps, eps)$M.Kp.adj
+}
+
+i_max <- which.max(LC.ismp)
+eps_max <- epsilons[i_max]
+isomap_max <- isomap_results[i_max]
+
+plot(epsilons, LC.ismp, type="b", main=paste0("eps=",round(eps_max,4)))
+abline(v=eps_max,col=2)
+```
+
+```{r}
+best_k_isomap <- isomap(D1, ndim=q,  eps=eps_max)
+pairs(cbind(X[,1:2] ,isomap=best_k_isomap$points[,1]), pch=20, main="Best ISOMAP output in 1-dim")
+```
+
+```{r}
+plot(best_k_isomap$points[,1], pch=20, main="Best ISOMAP output in 1-dim", as=1)
+# todo how to add text
+```
+
+Select 3 countries located in the low dimensional space in such a way that they cover the variability of all the points in this dimension. Then plot their lgDifLE functions in a graphic as that in page 2.
+
+How do you interpret the dimension obtained with ISOMAP?
+
+```{r}
+
+```
+
+
+**4.2** USING t-SNE. Use theta=0 in Rtsne function and choose perplexity in seq(10,50,by=10) as the value maximizing the correlation between the distance matrices in high and low dimensioal spaces.
+
+```{r}
+library("Rtsne")
+D=dist(as.matrix(X))
+
+set.seed(42)
+theta= 0.0
+perp = 50
+q=1
+
+tsne_out <- Rtsne(D, pca=FALSE, perplexity=perp, theta=theta, q=1)
+
+plot(tsne_out$Y, asp=1, main="t-SNE")
+text(tsne_out$Y[,1], tsne_out$Y[,2], rownames(X), pos = 3, cex = .7)
+```
+
+
+```{r}
+require(Rtsne)
+set.seed(4444)
+
+D1 <- dist(X)
+Kp <- 10
+q <- 2
+theta = 0
+
+perplexity <- seq(10,50,by=10)
+
+LC.tsne <- numeric(length(perplexity))
+Rtsne.k <- vector("list",length(perplexity))
+
+for (i in 1:length(perplexity)){
+    Rtsne.k[[i]] <- Rtsne(D1, perplexity=perplexity[i], dims=q,
+                          theta=0, pca=FALSE, max_iter = 1000)
+    D2.k <- dist(Rtsne.k[[i]]$Y)
+    LC.tsne[i] <- LCMC(D1,D2.k,Kp)$M.Kp.adj
+}
+
+i.max <- which.max(LC.tsne)
+perplexity_max <- perplexity[i.max[1]] 
+best_rtsne <- Rtsne.k[[i.max]]
+
+plot(perplexity,LC.tsne, main=paste0("perplexity max=",perplexity_max))
+abline(v=perplexity[i.max],col=2)
+```
+
+```{r}
+pairs(cbind(x=X[,1], y=X[,2] ,tsne=best_rtsne$Y[,1]), pch=20, main="Best t-SNE output in 1-dim")
+```
+- Select 3 countries located in the low dimensional space in such a way that they cover the variability of all the points in this dimension. Then plot their lgDifLE functions in a graphic as that in page 2.
+
+
+```{r}
+plot(best_rtsne$Y, asp=1, main="t-SNE")
+text(best_rtsne$Y[,1], best_rtsne$Y[,2], rownames(X), pos = 3, cex = .7)
+```
+
+```{r}
+sel_points = c("MT", "ET", "DJ")
+op <- par(mfrow = c(1,3))
+
+for (i in 1:3){
+ matplot(1:100,t(lgDifLE), type="l",  col=8, 
+        xlab="Age",ylab="log-Increase in life expectancy",
+        main="log-Increase in life expectancy, all countries, year 2021",
+        cex.main=.75,cex.lab=.75,cex.axis=.75)
+
+  i <- which(rownames(lgDifLE)==sel_points[i])
+  lines(1:100,lgDifLE[i,],lwd=4, col=1)
+  legend("bottomright",CtryName[i],lwd=4,col=1,bty="n")
+
+}
+```
+
+
+- How do you interpret the dimension obtained with t-SNE?
+
+
+```{r}
+
+```
+
+**4.3** Do a pairs plot (that is, a matrix of scatterplots) of the matrix having the following 4 columns:
+
+- LE[,1], that is, life expectancy at birth.
+- First principal component of lgDifLE.
+- 1-dimensional configuration obtained by isomap.
+- 1-dimensional configuration obtained by t-SNE.
+Comment on the resulting graphic.
+
+```{r}
+
+# compare to PCA
+pca_le = princomp(X)$scores
+plot(pca_le, t='n')
+text(pca_le, labels=rownames(X))
+
+```
