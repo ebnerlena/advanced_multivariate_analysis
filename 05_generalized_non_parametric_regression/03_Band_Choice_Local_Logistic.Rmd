@@ -1,0 +1,137 @@
+---
+title: "Bandwidth Choice in Local Logistic Regression"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+subtitle: An Application to Country Development Data
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Bandwidth choice for the local logistic regression
+
+The following function `h.cv.sm.binomial` implements two leave-one-out cross-validation (CV) bandwidth choice methods in the local logistic regression. 
+The first one is based on the minimization of the CV classification error. 
+The second one maximize the loo-CV estimation of the expected likelihood of an independent observation. 
+
+The function `sm.binomial`, from library `sm`, is used.
+
+
+```{r}
+# Bandwidth choice in the local logistic regression 
+# by leave-one-out cross-validation.
+# Function "sm.binomial", from library "sm", is used.
+#
+# Pedro Delicado
+
+# method can be equal to 'loglik.CV' (default) or 'prob.missclas.CV'
+h.cv.sm.binomial <- function(x,y,rg.h=NULL,l.h=10,method=loglik.CV){
+   cv.h <- numeric(l.h)
+   if (is.null(rg.h)){
+      hh <- c(h.select(x,y,method="cv"),
+              h.select(x,y,method="aicc"))#,hcv(x,y))
+      rg.h <- range(hh)*c(1/1.1, 1.5)
+   }
+   i <- 0
+   gr.h <- exp( seq(log(rg.h[1]), log(rg.h[2]), l=l.h))
+   for (h in gr.h){
+      i <- i+1
+      cv.h[i] <- method(x,y,h)
+   }
+   return(list(h = gr.h, 
+               cv.h = cv.h, 
+               h.cv = gr.h[which.min(cv.h)]))
+}
+
+# method prob.missclas.CV: leave-one-out probability of miss-classification
+prob.missclas.CV <- function(x,y,h){
+  n <- length(x)
+  pred <- sapply(1:n, 
+      function(i,x,y,h){
+         sm.binomial(x=x[-i],y=y[-i],h=h,eval.points=x[i],display="none")$estimate
+      },   x,y,h)
+  return(sum(abs(pred-y)>.5)/n)
+}
+
+# method loglik.CV: leave-one-out log-likelihood 
+loglik.CV <- function(x,y,h){
+  n <- length(x)
+  pred <- sapply(1:n, 
+      function(i,x,y,h){
+         sm.binomial(x=x[-i],y=y[-i],h=h,eval.points=x[i],display="none")$estimate
+      },   x,y,h)
+  return(-sum( y*log(pred/(1-pred)) + log(1-pred) )/n)
+}
+```
+
+Use the function `h.cv.sm.binomial` to choose the
+bandwidth in the local logistic regression that models `ind.agr` as a function of `Life.expec`
+(these variables have been defined in other practices working with Country Development Data).
+
+```{r,message=FALSE,warning=FALSE}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+attach(countries)
+ind.agr<-(Agric.employ.. < median(Agric.employ..) )
+library(sm)
+```
+
+```{r}
+# using h.CV.loglik
+h.CV.loglik <- h.cv.sm.binomial(Life.expec,ind.agr,rg.h=c(6,14),method=loglik.CV)
+plot(h.CV.loglik$h,h.CV.loglik$cv.h)
+lines(h.CV.loglik$h,h.CV.loglik$cv.h)
+```
+
+```{r}
+aux <- sm.binomial(Life.expec,ind.agr,h=h.CV.loglik$h.cv)
+title(main=paste("h.cv.loglik =",round(h.CV.loglik$h.cv,2),sep=""))
+
+aux.glm <- glm(ind.agr ~ Life.expec,family=binomial)
+pred <- predict(aux.glm, 
+                newdata=data.frame(Life.expec=aux$eval.points),
+                type="response")
+lines(aux$eval.points,pred,col=2,lty=2)
+legend("left",c("Local logistic","Logistic"),
+      col=c(1,2),lty=c(1,2))
+
+```
+
+```{r}
+# using h.CV.pr.misscl
+n<-length(Life.expec)       
+h.CV.pr.misscl <- h.cv.sm.binomial(Life.expec,ind.agr,rg.h=c(4,20),
+                                   method=prob.missclas.CV)
+plot(h.CV.pr.misscl$h,h.CV.pr.misscl$cv.h)
+lines(h.CV.pr.misscl$h,h.CV.pr.misscl$cv.h)
+```
+
+# Bandwidth choice for the local Poisson regression
+
+Modify the functions `h.cv.sm.binomial` and `loglik.CV` to obtain a bandwidth choice method for the local Poisson regression based on the loo-CV estimation of the expected likelihood of an independent observation. 
+
+Remember that the leave-one-out cross-validation estimation of the expected log-likelihood of an independent observation, when using $h$ as bandwidth, is
+\[
+\ell_{CV}(h)
+=\frac{1}{n}\sum_{i=1}^{n} \log\left( \widehat{\Pr}_h^{\tiny(-i)}(Y=y_i|X=x_i)\right),
+\]
+where $\widehat{\Pr}_h^{\tiny(-i)}(Y=y_i|X=x_i)$ is an estimation of
+\[
+\Pr(Y=y_i|X=x_i)=e^{-\lambda_i} \frac{\lambda_i^{y_i}}{y_i!},
+\]
+and 
+\[
+\lambda_i=\mathbb{E}(Y|X=x_i)
+\]
+should be estimated by maximum local likelihood using $h$ as bandwidth (for instance, using the function `sm.poisson` from the R package `sm`).

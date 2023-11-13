@@ -1,0 +1,128 @@
+---
+title: "My own local `glm`"
+author: "Pedro Delicado"
+date: "`r format(Sys.time(), '%d/%b/%Y')`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Write your own local logistic regression function
+
+Use the following R script to generate artificial data.
+
+```{r}
+# Plots in the slides have been done with this seed:
+# set.seed(2)
+set.seed(2)
+beta0=0; beta1=1; k=4; s=.5; n<-400
+x<-sort(rnorm(n))
+l.x <- beta0 + beta1*x
+theta.x <- l.x + k*x*dnorm(x,m=0,sd=s)
+m.x <- 1/(1+exp(-theta.x))
+logit.x <- 1/(1+exp(-l.x))
+y <- rbinom(n,1,m.x)
+# grid
+nt<-101; tg<-seq(-3.5,3.5,length=nt)
+l.t <- beta0 + beta1*tg
+theta.t <- l.t + k*tg*dnorm(tg,m=0,sd=s)
+m.t <- 1/(1+exp(-theta.t))
+logit.t <- 1/(1+exp(-l.t))
+op<-par(mfrow=c(1,2))
+plot(tg,m.t,xlim=c(-3.5,3.5),ylim=c(0,1),type="l")
+lines(tg,logit.t,col=2); points(x,y,col=4,pch=3)
+plot(tg,theta.t,xlim=c(-3.5,3.5),type="l")
+lines(tg,l.t,col=2)
+par(op)
+```
+
+Write a script in R that fits a local logistic regression around $t_0=-0.5$. 
+Then do the same for each element of vector `tg`. 
+
+The pseudo-code should be like that:
+
+1. Decide the bandwidth value: $h=0.35$, for instance.
+2. For `t0= -0.5` do: 
+    a. Define `x.t <- x - t0`.
+    b. Compute the weight of each $x_i$ in `x` as $K((x_i-t_0)/h)$, where $K$ is a density function symmetric around 0 (use, for instance, `dnorm`).
+    c. Fit the weighted generalized linear model `y ~ x.t` with family `binomial` and the weights computed before.
+    d. Take the intercept coefficient $b_0$ of the preceding fitted generalized linear model and define the estimation $\hat{m}(t_0)$ of $m(t_0)$ as $\hat{m}(t_0)=1/(1+\exp(-b_0))$.  
+3. Repeat the previous steps for each $t$ in `tg`.
+4. Add the estimated function $\hat{m}(t)$, for $t\in$`tg`, 
+to the graphic $(t,m(t))$, $t\in$`tg`.
+
+\skip 
+
+Estimating at $t_0$, for a given value of $t_0$:
+```{r, message=FALSE, warning=FALSE}
+t0 <- -.5
+h <- .35
+x.t <- x - t0
+wt0 <- dnorm(x.t/h) 
+glm.t0 <- glm(y~x.t,family = binomial, weights = wt0)
+hat.beta0.t0 <- glm.t0$coefficients[1]
+hat.m.t0 <- 1/(1+exp(-hat.beta0.t0)) 
+```
+
+Plotting the results:
+```{r}
+op<-par(mfrow=c(1,2))
+plot(tg,m.t,xlim=c(-3.5,3.5),ylim=c(0,1),type="l")
+lines(tg,logit.t,col=2); points(x,y,col=4,pch=3)
+abline(v=t0,col=8,lwd=2)
+points(x,.1*wt0/dnorm(0),col=8,pch=19)
+points(t0,hat.m.t0,col=6,pch=19)
+plot(tg,theta.t,xlim=c(-3.5,3.5),type="l")
+lines(tg,l.t,col=2)
+abline(v=t0,col=8,lwd=2)
+points(x,min(l.t)+.1*(max(l.t)-min(l.t))*wt0/dnorm(0),col=8,pch=19)
+points(t0,hat.beta0.t0,col=6,pch=19)
+par(op)
+```
+
+Estimating at every `t` in `tg`:
+
+```{r, message=FALSE, warning=FALSE}
+h <- .35
+hat.m.tg <- numeric(length(tg))
+hat.beta0.tg <- numeric(length(tg))
+for (j in (1:length(tg))){
+  t <- tg[j]
+  x.t <- x - t
+  wt <- dnorm(x.t/h) 
+  glm.t <- glm(y~x.t,family = binomial, weights = wt)
+  hat.beta0.tg[j] <- glm.t$coefficients[1]
+  hat.m.tg[j] <- 1/(1+exp(-hat.beta0.tg[j])) 
+}
+```
+
+Plotting the results:
+
+```{r}
+op<-par(mfrow=c(1,2))
+plot(tg,m.t,xlim=c(-3.5,3.5),ylim=c(0,1),type="l")
+lines(tg,logit.t,col=2); points(x,y,col=4,pch=3)
+abline(v=t0,col=8,lwd=2)
+points(x,.1*wt0/dnorm(0),col=8,pch=19)
+points(t0,hat.m.t0,col=6,pch=19)
+lines(tg,hat.m.tg,col=6)
+plot(tg,theta.t,xlim=c(-3.5,3.5),type="l")
+lines(tg,l.t,col=2)
+abline(v=t0,col=8,lwd=2)
+points(x,min(l.t)+.1*(max(l.t)-min(l.t))*wt0/dnorm(0),col=8,pch=19)
+points(t0,hat.beta0.t0,col=6,pch=19)
+lines(tg,hat.beta0.tg,col=6)
+par(op)
+```
+
