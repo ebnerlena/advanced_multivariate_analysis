@@ -35,7 +35,7 @@ lines(x,y0)
 
 We use "locpolreg"
 ```{r}
-source("locpolreg.R")
+source("./04_non_parametric_regression/locpolreg.R")
 ```
 
 ```{r,fig.asp=1}

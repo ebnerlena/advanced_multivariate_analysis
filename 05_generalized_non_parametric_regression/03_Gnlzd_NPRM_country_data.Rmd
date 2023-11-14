@@ -34,7 +34,7 @@ This file contains the following variables:
 
 Reading the data and doing a scatterplot matrix of all variables:
 ```{r}
-countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+countries<-read.csv2(file="./05_generalized_non_parametric_regression/HDI.2017.subset.csv",row.names = 1)
 attach(countries)
 head(countries)
 ```
@@ -179,9 +179,10 @@ ii. a parametric fitting of a Poisson Generalized Linear Model (using `glm`).
 Fit a local Poisson regression modeling `le.fm.r`  as a function of `Inf.Mort.rat`.
 
 ```{r}
+# in local poisson we assure that lambda is always non negativ
 aux <- sm.poisson(Inf.Mort.rat,le.fm.r,h=10, col=1)
 sm.regression(Inf.Mort.rat,le.fm.r,h=10,col=4,add=T)
-aux.glm <- glm(le.fm.r ~ Inf.Mort.rat,family=poisson)
+aux.glm <- glm(le.fm.r ~ Inf.Mort.rat,family=poisson) # fitting a poisoon function; could also be done with sm.poisson
 pred <- predict(aux.glm, 
                 newdata=data.frame(Inf.Mort.rat=aux$eval.points),
                 type="response")

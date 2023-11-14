@@ -70,7 +70,7 @@ t0 <- -.5
 h <- .35
 x.t <- x - t0
 wt0 <- dnorm(x.t/h) 
-glm.t0 <- glm(y~x.t,family = binomial, weights = wt0)
+glm.t0 <- glm(y~x.t,family = binomial, weights = wt0) # udr glm instead of lm
 hat.beta0.t0 <- glm.t0$coefficients[1]
 hat.m.t0 <- 1/(1+exp(-hat.beta0.t0)) 
 ```

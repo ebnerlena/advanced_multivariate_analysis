@@ -37,6 +37,8 @@ The function `sm.binomial`, from library `sm`, is used.
 # Pedro Delicado
 
 # method can be equal to 'loglik.CV' (default) or 'prob.missclas.CV'
+# rg.h=range of h
+# h = how many values of h you want to use
 h.cv.sm.binomial <- function(x,y,rg.h=NULL,l.h=10,method=loglik.CV){
    cv.h <- numeric(l.h)
    if (is.null(rg.h)){
@@ -58,11 +60,11 @@ h.cv.sm.binomial <- function(x,y,rg.h=NULL,l.h=10,method=loglik.CV){
 # method prob.missclas.CV: leave-one-out probability of miss-classification
 prob.missclas.CV <- function(x,y,h){
   n <- length(x)
-  pred <- sapply(1:n, 
+  pred <- sapply(1:n, # pred = probabilites
       function(i,x,y,h){
-         sm.binomial(x=x[-i],y=y[-i],h=h,eval.points=x[i],display="none")$estimate
+         sm.binomial(x=x[-i],y=y[-i],h=h,eval.points=x[i],display="none")$estimate # eval function at the point that has been removed
       },   x,y,h)
-  return(sum(abs(pred-y)>.5)/n)
+  return(sum(abs(pred-y)>.5)/n) # return proportion of missclassification 
 }
 
 # method loglik.CV: leave-one-out log-likelihood 

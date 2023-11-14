@@ -34,7 +34,7 @@ This file contains the following variables:
 
 
 ```{r}
-countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+countries<-read.csv2(file="04_non_parametric_regression/HDI.2017.subset.csv",row.names = 1)
 attach(countries)
 head(countries)
 ```
