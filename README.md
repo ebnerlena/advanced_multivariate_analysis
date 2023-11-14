@@ -13,6 +13,7 @@
 - [t-SNE](./03_t-SNE/)
 - [Dimensionality Reduction Assignment](./03_assignment/)
 - [Non-Parametric Regression](./04_non_parametric_regression/)
+- [Local Linear Regression Assignment](./04_assignment/)
 
 - [Final Exam 2023](./final_exam_practice/)
 - [Partial Exam Okt. 2023](./partial_exam/)
