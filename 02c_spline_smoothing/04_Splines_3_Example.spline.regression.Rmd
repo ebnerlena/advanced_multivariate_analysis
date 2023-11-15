@@ -1,0 +1,148 @@
+---
+title: 'Splines 3: Example of spline regression'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+subtitle: An Application to Country Development Data
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+attach(countries)
+head(countries)
+names(countries)
+# [1] "country_name"   "Life.expec"     "Life.expec.f"  
+# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"  
+# [7] "Agric.employ.."     
+```
+
+# Smoothing splines and spline regression
+
+```{r}
+sm.sp.1 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+                         cv = FALSE, all.knots = TRUE)
+sm.sp.1
+plot(x = log(Life.expec), y = log(Inf.Mort.rat),
+     main=paste("Number of knots =",sm.sp.1$fit$nk,
+                "; Equiv. no. params.=",round(sm.sp.1$df,2)))
+abline(v=sm.sp.1$fit$min+sm.sp.1$fit$knot*sm.sp.1$fit$range, col=8, lty=2)
+lines(sm.sp.1,col=2,lwd=2)
+```
+
+```{r}
+sm.sp.2 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+                         cv = FALSE, all.knots = FALSE)
+sm.sp.2
+cat("\nrange(sm.sp.1$y-sm.sp.2$y):")
+cat(range(sm.sp.1$y-sm.sp.2$y))
+
+plot(x = log(Life.expec), y = log(Inf.Mort.rat),
+     main=paste("Number of knots =",sm.sp.2$fit$nk,
+                "; Equiv. no. params.=",round(sm.sp.2$df,2)))
+abline(v=sm.sp.2$fit$min+sm.sp.2$fit$knot*sm.sp.2$fit$range, col=8, lty=2)
+lines(sm.sp.2,col=2,lwd=2)
+```
+
+
+```{r}
+sm.sp.3 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+                         cv = FALSE, all.knots = FALSE, nknots = 20)
+sm.sp.3
+
+cat("\nrange(sm.sp.1$y-sm.sp.3$y):")
+cat(range(sm.sp.1$y-sm.sp.3$y))
+
+cat("\nrange(sm.sp.2$y-sm.sp.3$y):")
+cat(range(sm.sp.2$y-sm.sp.3$y))
+
+plot(x = log(Life.expec), y = log(Inf.Mort.rat),
+     main=paste("Number of knots =",sm.sp.3$fit$nk,
+                "; Equiv. no. params.=",round(sm.sp.3$df,2)))
+abline(v=sm.sp.3$fit$min+sm.sp.3$fit$knot*sm.sp.3$fit$range, col=8, lty=2)
+lines(sm.sp.3,col=2,lwd=2)
+```
+
+```{r}
+plot(x = log(Life.expec), y = log(Inf.Mort.rat))
+abline(v=sm.sp.3$fit$min+sm.sp.3$fit$knot*sm.sp.3$fit$range, col=8, lty=2)
+lines(sm.sp.1,col=2,lwd=2)
+#lines(sm.sp.2,col=3,lwd=2)
+#lines(sm.sp.3,col=4,lwd=2)
+```
+
+# Spline regression
+```{r}
+library(splines)
+x <- lg.le <- log(sort(Life.expec)) # x
+y <- lg.im <- log(Inf.Mort.rat)[order(Life.expec)] # y
+
+t <- seq(min(x),max(x),length= 201)
+
+n <- length(x)
+k <- 10 # repeat later with k=40: the resuls are almost identical
+my.knots <- seq(min(x),max(x),length=k)
+# my.knots <- quantile(x,seq(0,1,length=k))
+b.kn <- range(x)+c(-1,1)*.1*(diff(range(x)))
+X.bs <- bs(x,knots=my.knots,Boundary.knots = b.kn)
+t.bs <- predict(X.bs,t)
+last.col <- dim(X.bs)[2]
+X.bs <- X.bs[,-last.col]
+t.bs <- t.bs[,-last.col]
+
+plot(t,t.bs[,1],type="l",ylim=c(0,max(t.bs)))
+points(x,X.bs[,1],pch=19,col=1)
+for (j in 2:k){
+  lines(t,t.bs[,j],col=j)
+  points(x,X.bs[,j],pch=19,col=j)
+}
+```
+
+```{r}
+dt <- t[2]-t[1]
+t.bs.d2 <- diff(t.bs,diff=2)/dt^2
+#t.bs.d2 <- splineDesign(my.knots, t,derivs=2+0*t,outer.ok = TRUE)
+
+#ts.plot(t.bs.d2,col=1:k)
+B.bs <- t(t.bs.d2) %*% t.bs.d2 * dt
+
+lambda.1 <- .1
+lambda.2 <- .001
+#coef.bs <- solve(t(X.bs)%*%X.bs + lambda*B.bs)%*%t(X.bs)%*%y
+#y.hat <- X.bs %*% coef.bs
+H.1 <- X.bs %*% solve(t(X.bs)%*%X.bs + lambda.1*B.bs)%*%t(X.bs)
+y.hat.1 <- H.1 %*% y
+df.1 <- sum(diag(H.1))
+
+H.2 <- X.bs %*% solve(t(X.bs)%*%X.bs + lambda.2*B.bs)%*%t(X.bs)
+y.hat.2 <- H.2 %*% y
+df.2 <- sum(diag(H.2))
+```
+
+```{r}
+plot(x,y,xlab="log(life.expectancy)",ylab="log(infant.mortality)",
+     ylim=c(0.25,5.25))
+title(paste("Spline regression with",k,"knots"))
+abline(v=my.knots,col="grey",lty=3)
+points(x,y.hat.1,pch=19,col=2)
+lines(x,y.hat.1,col=2)
+points(x,y.hat.2,pch=19,col=4)
+lines(x,y.hat.2,col=4)
+legend("bottomleft",
+       legend=c(paste("lambda =",lambda.1,", df =",round(df.1,2)),
+                paste("lambda =",lambda.2,", df =",round(df.2,2))),
+       col=c(2,4),pch=19,lty=1)
+
+```

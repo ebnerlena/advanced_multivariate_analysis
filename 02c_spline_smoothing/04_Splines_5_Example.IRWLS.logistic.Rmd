@@ -1,0 +1,102 @@
+---
+title: 'Splines 5: Penalized IRWLS algorithm for fitting a nonparametric version of logistic regression'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+subtitle: An Application to Burning Data
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Burn Injuries Data
+
+The *Burn injuries dataset* (Fan, J. and I. Gijbels (1996). *Local polynomial modelling and its applications*) contains data from 435 adults (between ages 17 and 85) suffering from burn injuries
+(you can find this dataset at file `burn.cont.dat`).
+It includes two variables:
+
+* `surv`: The binary response variable is taken to be 1 for those victims who survived their burn injuries and zero otherwise.
+* `lgae`: log(area of third degree burn + 1) is taken as a covariate.
+
+The conditional expectation of `surv` given a level of `lgae` is the conditional probability of 
+	survival given this particular value of `lgae`.
+
+```{r}
+#
+# reading the data
+burns <-read.table("burn.cont.dat", head=T,sep=" ")
+lgae <- burns[,2]
+perm <- order(lgae)
+lgae <- lgae[perm]
+superv <- burns[perm,3]
+n<-length(superv)
+```
+
+# Logistic regresion for Burn Injuries Data
+## Logistic regresion using `glm`
+```{r}
+glm.burn <- glm(superv~lgae,family=binomial())
+plot(lgae,superv,main="Regression 0-1 param. and non-param.")
+lines(lgae,glm.burn$fitted.values,col=4)
+```
+
+## Logistic regression using our own IRWLS algorithm
+
+The R script `"IRWLS_logistic_regression.R"` defines the function `logistic.IRWLS` that implements the IRWLS algorithm for fitting a logistic regression model by maximum likelihood. 
+
+```{r}
+source("IRWLS_logistic_regression.R")
+```
+
+```{r}
+x <- matrix(lgae,ncol=1)
+y <- superv
+
+
+my.glm.burn <- logistic.IRWLS(x,y)
+
+plot(lgae,superv,main="Regression 0-1 param. and non-param.")
+lines(lgae,glm.burn$fitted.values,col=4)
+lines(lgae,my.glm.burn$fitted.values,col=2,lty=2)
+```
+
+
+# Spline fit of generalized non parametric regression
+
+The R script `"IRWLS_logistic_regression.R"` also contains the definition of the function `logistic.IRWLS.splines` that implements the penalized IRWLS algorithm for fitting the non parametric version logistic regression model by local maximum likelihood.
+
+See the complete `Description` of the function `logistic.IRWLS.splines` in the R script `"IRWLS_logistic_regression.R"`.
+
+We fit now the non parametric regression model with binary response to the *Burn Injuries Data*.
+First we use the default value for the *degrees of freedom* parameter, `df=6`, and we compare the fitted function with that obtained by parametric logistic regression.
+
+```{r}
+my.spline.glm.burn <- logistic.IRWLS.splines(x,y)
+
+plot(lgae,superv,main="Regression 0-1 param. and non-param.")
+lines(lgae,glm.burn$fitted.values,col=4)
+lines(lgae,my.glm.burn$fitted.values,col=2,lty=2)
+lines(lgae,my.spline.glm.burn$fitted.values,col=3)
+```
+
+Now we call again function `logistic.IRWLS.splines` but now we fix a larger number of *degrees of freedom* (`df=20`) and ask the function to plot all the intermediate steps ('plts=TRUE`) in
+both scales: the scale of $p(x)$ and the scale of $\theta(x)=\log(p(x)/(1-p(x)))$. 
+
+```{r}
+my.spline.glm.burn <- logistic.IRWLS.splines(x,y,df=20,plts = TRUE)
+
+plot(lgae,superv,main="Regression 0-1 param. and non-param.")
+lines(lgae,glm.burn$fitted.values,col=4)
+lines(lgae,my.glm.burn$fitted.values,col=2,lty=2)
+lines(lgae,my.spline.glm.burn$fitted.values,col=3)
+```

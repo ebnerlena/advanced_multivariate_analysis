@@ -1,0 +1,190 @@
+---
+title: 'Splines 2: Basis and Spline smoothing'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+subtitle: An Application to Country Development Data
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Spline smoothing in R. Libraries `stats` and `splines`
+
+We will mainly use functions `smooth.spline`and `predict.smooth.spline` from library `stats`. 
+
+
+```{r, eval=FALSE}
+help(smooth.spline)
+help(predict.smooth.spline)
+```
+
+See also `help(package=splines)` for additional functions as the following:
+
+* `bs`, `ns`: Build bases of B-splines and natural B-splines.
+(The example of the combined use of `bs` and `lm` to fit a smoothing spline to a data set has special interest.)
+* `interpSpline`: Return the cubic interpolating spline for a data set.
+
+```{r}
+library(splines)
+```
+
+```{r,eval=FALSE}
+help(package=splines)
+help(bs)
+help(ns)
+help(interpSpline)
+```
+
+# B-splines basis
+
+Use the following sentences to build and plot a matrix of B-splines with 9 knots and degrees 1, 2 and 3 (cubic splines). These bases are evaluated at 101 points.
+
+```{r,fig.asp=1.5} 
+x <- seq(0,1,by=.01)
+my.knots <- seq(.1,.9,by=.1)
+
+op <- par(mfrow=c(3,1))
+k=1
+basis1 <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+matplot(x,basis1,type="l",ylim=c(0,1),lty=1)
+abline(v=my.knots,lty=2)
+
+k=2
+basis2 <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+matplot(x,basis2,type="l",ylim=c(0,1),lty=1)
+abline(v=my.knots,lty=2)
+
+k=3
+basis3 <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+matplot(x,basis3,type="l",ylim=c(0,1),lty=1)
+abline(v=my.knots,lty=2)
+
+par(op)
+```
+
+
+## Natural cubic B-splines
+
+Compare the cubic B-splines basis with the Natural cubic B-splines basis.
+
+```{r}
+inner.knots <- seq(.2,.8,by=.1)
+basis3n <- ns(x=x,knots=inner.knots,intercept=T,Boundary.knots=c(.1,.9))
+matplot(x,basis3n,type="l",ylim=c(-1,1),lty=1)
+abline(v=inner.knots,lty=2)
+abline(v=c(.1,.9),lty=2)
+```
+
+
+# Development data in 179 countries
+
+## Country development data
+
+We will be working with the file `HDI.2017.subset.csv` containing information on development indicators measured in 179 countries (Source: [Human Development Data (1990-2017)](http://hdr.undp.org/en/data), The Human Development Report Office, United Nations).
+
+This file contains the following variables:
+
+* `Life.expec` Life expectancy at birth.
+* `Life.expec.f` Life expectancy at birth for females.
+* `Life.expec.m` Life expectancy at birth for males.
+* `le.fm` Difference `Life.expec.f` minus `Life.expec.m`.
+* `Inf.Mort.rat` Infant mortality rate: The annual number of deaths of infants under one year of age per 1,000 live births in the same year.
+* `Agric.employ.%` Employment in agriculture (% of total employment).
+
+```{r}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+attach(countries)
+head(countries)
+names(countries)
+# [1] "country_name"   "Life.expec"     "Life.expec.f"  
+# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"  
+# [7] "Agric.employ.."     
+```
+
+
+## From interpolating spline to regression line by smoothing splines.
+
+Select randomly 15 rows in the data frame `countries`.
+```{r}
+set.seed(1234)
+ind <- sort(sample(dim(countries)[1],15))
+ind
+smpl <- countries[ind,]
+```
+
+Plot the simple regression line (use `lm`). 
+
+
+```{r}
+# lgle <- log(Life.expec)
+lgle <- jitter(log(smpl[,2]))
+ord.lgle <- order(lgle)
+lgle <- lgle[ord.lgle]
+# log(Inf.Mort.rat)
+lgim <-log(smpl[ord.lgle,6])
+
+plot(lgle,lgim,pch=19,ylim=c(.5,5.5))
+
+a <- lm(lgim~lgle)
+summary(a)
+lines(lgle,a$fitted.values,col=2,lty=3)
+```
+
+Then interpolate the data 
+\[
+(x_i={\tt log(Life.expec)},\; y_i={\tt log(Inf.Mort.rat)}), i=1,\ldots,15,
+\]
+using the function `spline`.
+
+```{r}
+plot(lgle,lgim,pch=19,ylim=c(.5,5.5))
+lines(lgle,a$fitted.values,col=2,lty=3)
+
+sint <- spline(lgle,lgim,method="natural",n=1000)
+# names(sint)
+lines(sint,col=4)
+```
+
+Fit a cubic spline using `smooth.spline`. Use different values for the smoothing parameter to move from the interpolating spline to the regression line. 
+
+
+```{r, fig.asp=1.5}
+op <- par(mfrow=c(2,1))
+plot(lgle,lgim,pch=19,ylim=c(.5,5.5))
+lines(lgle,a$fitted.values,col=2,lty=3)
+lines(sint,col=4)
+
+
+plot(lgle,lgim,pch=19,ylim=c(.5,5.5))
+
+# Simple linear regression as a extreme case of smoothing spline
+sm.spl.2 <- smooth.spline(lgle,lgim,df=2)
+lines(lgle,a$fitted.values,col=2,lty=3)
+#points(sm.spl.2$x,sm.spl.2$y,col=2,pch=1)
+
+# Interpolating spline as a extreme case of smoothing spline
+sm.spl.15 <- smooth.spline(lgle,lgim,df=15)
+lines(sint$x,sint$y,col=4,lty=3)
+#points(sm.spl.15$x,sm.spl.15$y,col=4,pch=1)
+
+# Smoothing spline
+df.ss<-6
+sm.spl <- smooth.spline(lgle,lgim,df=df.ss)
+pred.ss <- predict(sm.spl,x=seq(min(lgle),max(lgle),length=1000))
+lines(pred.ss,col=6)
+#points(sm.spl$x,sm.spl$y,col=6,pch=1)
+par(op)
+```

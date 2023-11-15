@@ -1,0 +1,62 @@
+---
+title: "Splines 1: Spline Interpolation"
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Splines in R: Libraries and functions
+
+The following R libraries and functions implement the techniques related with splines.
+
+1. Library `stats`. Installed by default in R and charged when starting R. It includes the folowing functions, among other:
+
+- `spline`: Return the cubic interpolating spline for a data set.
+- `smooth.spline`: Fit a cubic spline to data set solving the penalized least squares problem.
+- `predict.smooth.spline`: Predict the value of a spline function fitted by `smooth.spline` for new values of the explanatory variable.
+
+2. Library `splines`. See `help(package=splines)` for a complete list of functions in the library. Among them we remark the following:
+
+- `bs`, `ns`: Build bases of B-splines and natural B-splines.
+  (The example of the combined use of `bs` and `lm` to fit a smoothing spline to a data set has special interest.)
+- `interpSpline`: Return the cubic interpolating spline for a data set.
+
+# Interpolation by splines
+
+Example of interpolating natural cubic spline:
+
+```{r}
+# help(spline)
+# set.seed(3333) # nice results with this seed
+n <- 9
+x <- runif(n)
+y <- rnorm(n)
+spl.xy <- spline(x, y, method ="natural",
+                 xmin=0, xmax=1, n = 201)
+plot(x, y, pch=19, xlim=c(0,1), ylim=range(spl.xy$y),
+     main = paste("Natural spline interpolation through", n, "points"))
+lines(spl.xy, col = 2)
+```
+
+Natural spline extrapolation is linear:
+
+```{r}
+spl.xy <- spline(x, y, method ="natural",
+                 xmin=-1, xmax=2, n = 601)
+plot(x, y, pch=19, xlim=c(-1,2), ylim=range(spl.xy$y),
+     main = "Natural spline extrapolation is linear")
+lines(spl.xy, col = 2)
+```

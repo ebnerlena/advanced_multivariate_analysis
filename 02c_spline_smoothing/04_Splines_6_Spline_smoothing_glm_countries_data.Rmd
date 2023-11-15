@@ -1,0 +1,232 @@
+---
+title: 'Splines 6: Spline smoothing for glm. Country Development Data'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Development data in 179 countries
+
+We will be working with the file `HDI.2017.subset.csv` containing information on development indicators measured in 179 countries (Source: [Human Development Data (1990-2017)](http://hdr.undp.org/en/data), The Human Development Report Office, United Nations).
+
+This file contains the following variables:
+
+* `Life.expec` Life expectancy at birth.
+* `Life.expec.f` Life expectancy at birth for females.
+* `Life.expec.m` Life expectancy at birth for males.
+* `le.fm` Difference `Life.expec.f` minus `Life.expec.m`.
+* `Inf.Mort.rat` Infant mortality rate: The annual number of deaths of infants under one year of age per 1,000 live births in the same year.
+* `Agric.employ.%` Employment in agriculture (% of total employment).
+
+```{r}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+attach(countries)
+head(countries)
+names(countries)
+# [1] "country_name"   "Life.expec"     "Life.expec.f"  
+# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"  
+# [7] "Agric.employ.."     
+```
+
+
+# Local binary regression using splines. 
+
+## Classify countries according to `Agric.employ..`. 
+
+The median value of variable `Agric.employ..` is `r median(Agric.employ..)`. 
+Create a new binary variable `ind.agr` indicating for any country if variable `Agric.employ..` is lower than `r median(Agric.employ..)` (1) or not (0).
+This new variable is a development indicator.
+
+```{r}
+ind.agr<-(Agric.employ..<median(Agric.employ..))
+```
+
+## Classify countries according to `Life.expec`.
+
+The median value of variable `Life.expec` is `r median(Life.expec)`. 
+Create a new binary variable `ind.le` indicating for any country if variable `Life.expec` is greater than `r median(Life.expec)` (1) or not (0).
+This new variable is a development indicator.
+
+```{r}
+ind.esp<-(Life.expec> median(Life.expec) )
+```
+
+## Local binary regression using splines.
+
+Combine functions `bs` and `glm` to fit the following local binary regression models:
+
+* `ind.agr` as a function of `Life.expec`,
+* `ind.le`  as a function of `Agric.employ..`.
+
+
+### Fit a generalized nonparametric regression model to explain `ind.agr` as a function of `Life.expec`.
+
+First, We sort the data according to the explanatory variable.
+```{r} 
+x <- Life.expec
+y <- ind.agr
+sx <- sort(x,index.return =TRUE)
+x <- sx$x
+y <- y[sx$ix]
+```
+
+**First approach:** Combining functions `bs` and `glm`.
+
+In this approach the degree of smoothing is controlled by the number of knots. 
+
+```{r} 
+library(splines)
+# k=3: Cubic splines
+k <- 3
+my.knots <- unique(x)
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis)
+```
+
+**Second aproach:** Spline smoothing fit of a generalized nonparametric regression.
+
+```{r,warning=FALSE}
+source('IRWLS_logistic_regression.R')
+my.spline.glm <- 
+  logistic.IRWLS.splines(x,y,
+                         df=min(length(unique(x)),
+                                length(my.knots)+k+1),
+                         all.knots=TRUE)
+```
+
+Plotting the estimations.
+```{r}
+#op <- par(mfrow=c(2,2))
+plot(x,y,col=2,xlab="Life.expec",ylab="ind.agr")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+lines(x,my.spline.glm$fitted.values,col=4)
+```
+
+### Repeat the previous steps with lower number of knots.
+```{r,message=FALSE,warning=FALSE,fig.asp=0.75}
+op <- par(mfrow=c(2,2))
+plot(x,y,col=2,xlab="Life.expec",ylab="ind.agr")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+lines(x,my.spline.glm$fitted.values,col=4)
+
+#my.knots <- seq(min(x),max(x),length=length(x)/10)
+my.knots <- quantile(x,seq(0,1,length=length(x)/10))
+my.knots <- my.knots[-c(1,length(my.knots))]
+
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis,family="binomial")
+
+plot(x,y,col=2,xlab="Life.expec",ylab="ind.agr")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+#my.knots <- seq(min(x),max(x),length=length(x)/20)
+my.knots <- quantile(x,seq(0,1,length=length(x)/20))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis,family="binomial")
+plot(x,y,col=2,xlab="Life.expec",ylab="ind.agr")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+#my.knots <- seq(min(x),max(x),length=length(x)/40)
+my.knots <- quantile(x,seq(0,1,length=length(x)/40))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis,family="binomial")
+plot(x,y,col=2,xlab="Life.expec",ylab="ind.agr")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+par(op)
+``` 
+
+### Fit a generalized nonparametric regression model to explain `ind.esp` as a function of `Agric.employ..`.
+
+```{r,message=FALSE,warning=FALSE,fig.asp=0.75}
+x <- Agric.employ..; 
+y <- ind.esp; 
+sx <- sort(x,index.return =TRUE)
+x <- sx$x
+y <- y[sx$ix]
+
+op <- par(mfrow=c(2,2))
+
+# k=3 
+k <- 3
+my.knots <- unique(x)
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis)
+plot(x,y,col=2,xlab="Agric.employ..",ylab="ind.esp")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+#my.knots <- seq(min(x),max(x),length=length(x)/10)
+my.knots <- quantile(x,seq(0,1,length=length(x)/10))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis,family="binomial")
+plot(x,y,col=2,xlab="Agric.employ..",ylab="ind.esp")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+#my.knots <- seq(min(x),max(x),length=length(x)/20)
+my.knots <- quantile(x,seq(0,1,length=length(x)/20))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis,family="binomial")
+plot(x,y,col=2,xlab="Agric.employ..",ylab="ind.esp")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+#my.knots <- seq(min(x),max(x),length=length(x)/40)
+my.knots <- quantile(x,seq(0,1,length=length(x)/40))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+glm.spl.1 <- glm(y~basis,family="binomial")
+plot(x,y,col=2,xlab="Agric.employ..",ylab="ind.esp")
+lines(x,glm.spl.1$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+# Spline fit of gener.non.param. regression
+my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.knots)+k+1),all.knots=TRUE)
+lines(x,my.spline.glm$fitted.values,col=4)
+
+par(op)
+```

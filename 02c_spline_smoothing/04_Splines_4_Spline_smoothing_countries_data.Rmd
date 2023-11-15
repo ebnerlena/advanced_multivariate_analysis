@@ -1,0 +1,269 @@
+---
+title: 'Splines 4: Spline smoothing for Country Development Data'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+# Development data in 179 countries
+
+We will be working with the file `HDI.2017.subset.csv` containing information on development indicators measured in 179 countries (Source: [Human Development Data (1990-2017)](http://hdr.undp.org/en/data), The Human Development Report Office, United Nations).
+
+This file contains the following variables:
+
+* `Life.expec` Life expectancy at birth.
+* `Life.expec.f` Life expectancy at birth for females.
+* `Life.expec.m` Life expectancy at birth for males.
+* `le.fm` Difference `Life.expec.f` minus `Life.expec.m`.
+* `Inf.Mort.rat` Infant mortality rate: The annual number of deaths of infants under one year of age per 1,000 live births in the same year.
+* `Agric.employ.%` Employment in agriculture (% of total employment).
+
+```{r}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+attach(countries)
+head(countries)
+names(countries)
+# [1] "country_name"   "Life.expec"     "Life.expec.f"  
+# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"  
+# [7] "Agric.employ.."     
+```
+
+
+
+# Smoothing splines
+
+Use function `smooth.spline` to fit a cubic spline to the following data:
+
+* `Inf.Mort.rat` as a function of `le.fm`. 
+* `log(Inf.Mort.rat)` as a function of `log(Life.expec)`. 
+* `Inf.Mort.rat` as a function of `Agric.employ..`. 
+* `log(Inf.Mort.rat)` as a function of `log(Agric.employ..+1)`. 
+
+```{r}
+op <- par(mfrow=c(2,2))
+# Inf.Mort.rat as a function of le.fm
+sm.sp.4 <- smooth.spline(x=le.fm, y=Inf.Mort.rat, cv = FALSE, all.knots = FALSE)
+sm.sp.4
+plot(x=le.fm, y=Inf.Mort.rat)
+lines(sm.sp.4,col=2,lwd=2)
+
+# log(Inf.Mort.rat) as a function of log(Life.expec)
+sm.sp.1 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+                         cv = FALSE, all.knots = FALSE)
+sm.sp.1
+plot(x = log(Life.expec), y = log(Inf.Mort.rat))
+lines(sm.sp.1,col=2,lwd=2)
+
+# Inf.Mort.rat as a function of Agric.employ..
+sm.sp.2 <- smooth.spline(x=Agric.employ.., y=Inf.Mort.rat, 
+                         cv = FALSE, all.knots = FALSE)
+sm.sp.2
+plot(x=Agric.employ.., y=Inf.Mort.rat)
+lines(sm.sp.2,col=2,lwd=2)
+
+# log(Inf.Mort.rat) as a function of log(Agric.employ..+1)
+x <- log(1+Agric.employ..)
+y <- log(Inf.Mort.rat)
+sm.sp.3 <- smooth.spline(x= log(1+Agric.employ..), y=log(Inf.Mort.rat), 
+                         cv = FALSE, all.knots = FALSE)
+sm.sp.3
+plot(x= log(1+Agric.employ..), y=log(Inf.Mort.rat))
+lines(sm.sp.3,col=2,lwd=2)
+
+par(op)
+```
+
+## Combining functions `bs` and `lm` to fit smoothing splines
+
+Combine functions `bs` and `lm` to fit a degree 0 smoothing spline to the data `log(Inf.Mort.rat)` as a function of `log(Life.expec)`. 
+
+First, prepare the B-spline bais of degree 0. It is not possible to use the function `bs` for degree 0. So we do it step by step. 
+
+```{r}
+x <- log( Life.expec )
+y <- log( Inf.Mort.rat )
+sx <- sort(x,index.return =TRUE)
+x <- sx$x
+y <- y[sx$ix]
+
+
+# k <- 0
+n <- length(x)
+k <- 10
+my.knots <- seq(min(x),max(x),length=k)
+# my.knots <- quantile(x,seq(0,1,length=k))
+p <- length(my.knots)-1
+X <- matrix(0,nrow=n,ncol=p)
+for (j in 1:p){
+  X[,j] <- as.numeric((my.knots[j]<=x) & (x<my.knots[j+1]))
+}
+X[n,p] <- 1
+
+#edit(X)
+
+big.n <- 1000
+big.x <- seq(min(x),max(x),length=big.n)
+big.X <- matrix(0,nrow=big.n,ncol=p)
+for (j in 1:p){
+  big.X[,j] <- as.numeric((my.knots[j]<=big.x) & (big.x<my.knots[j+1]))
+}
+big.X[big.n,p] <- 1
+
+matplot(big.x,big.X,type="l")
+abline(v=my.knots,lty=2,col="grey")
+matpoints(x,X)
+```
+
+Then fit a linear model where the explanatory variables are the columns of the matrix with the evaluated B-spline basis. 
+```{r}
+lm.spl.0 <- lm(y~X-1)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+abline(v=my.knots,lty=2,col="grey")
+points(x,lm.spl.0$fitted.values,pch=20)
+
+pred.lm.big.x <- big.X %*% lm.spl.0$coefficients
+lines(big.x,pred.lm.big.x,col=4)
+title(main="Regression spline with degree 0 B-splines basis")
+``` 
+
+Combine functions `bs` and `lm` to fit a degree 1 smoothing spline to the data `log(Inf.Mort.rat)` as a function of `log(Life.expec)`.
+
+Use different values for the number of knots: The number of knots controls the degree of smoothing in this case.
+
+```{r, fig.asp=1}
+library(splines)
+op <- par(mfrow=c(2,2))
+my.knots <- x
+my.knots <- my.knots[-c(1,length(my.knots))] 
+k <- 1
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+#my.knots <- seq(min(x),max(x),length=length(x)/10)
+my.knots <- quantile(x,seq(0,1,length=length(x)/10))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+k <- 1
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+#my.knots <- seq(min(x),max(x),length=length(x)/20)
+my.knots <- quantile(x,seq(0,1,length=length(x)/20))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+k <- 1
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+#my.knots <- seq(min(x),max(x),length=length(x)/40)
+my.knots <- quantile(x,seq(0,1,length=length(x)/40))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+k <- 1
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+par(op)
+```
+
+Repeat now for cubic splines (degree equal to 3). 
+```{r, fig.asp=1}
+k <- 3
+op <- par(mfrow=c(2,2))
+
+my.knots <- x
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+#my.knots <- seq(min(x),max(x),length=length(x)/10)
+my.knots <- quantile(x,seq(0,1,length=length(x)/10))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+#my.knots <- seq(min(x),max(x),length=length(x)/20)
+my.knots <- quantile(x,seq(0,1,length=length(x)/20))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+#my.knots <- seq(min(x),max(x),length=length(x)/40)
+my.knots <- quantile(x,seq(0,1,length=length(x)/40))
+my.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=my.knots,intercept=T,degree=k)
+lm.spl <- lm(y~basis)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+par(op)
+```
+
+## Comparing `smooth.spline` with the combination of functions `bs` and `lm`
+ 
+```{r}
+# Combination of functions `bs` and `lm`:
+x <- jitter( log( Life.expec ) )
+y <- log( Inf.Mort.rat )
+sx <- sort(x,index.return =TRUE)
+x <- sx$x
+y <- y[sx$ix]
+
+n.knots <- 15
+#my.knots <- seq(min(x),max(x),length=n.knots)
+my.knots <- quantile(x,seq(0,1,length=n.knots))
+inner.knots <- my.knots[-c(1,length(my.knots))] 
+basis <- bs(x=x,knots=inner.knots,intercept=T,degree=k)
+# dim(basis)
+# 132   df # Therefore: df=n.knots + 3 + 1 (Intercept)
+lm.spl <- lm(y~basis-1)
+plot(x,y,col=2,xlab="log( Life.expec )",ylab="log( Inf.Mort.rat )")
+lines(x,lm.spl$fitted.values)
+abline(v=my.knots,lty=2,col="grey")
+
+# Using smooth.spline
+new.x <- seq(min(x),max(x),length=1000)
+df.ss<-dim(basis)[2]
+sm.spl <- smooth.spline(x,y,df=df.ss)
+#pred.ss <- predict(sm.spl,x=x)
+pred.ss <- predict(sm.spl,x=new.x)
+lines(pred.ss,col=6)
+
+legend("bottomleft",c("bs and lm combination","smooth.spline"),
+       lty=1,col=c(1,6))
+```
+
