@@ -1,5 +1,5 @@
 ---
-title: 'Splines 3: Example of spline regression'
+title: "Splines 3: Example of spline regression"
 author: "Pedro Delicado"
 date: "`r Sys.Date()`"
 output:
@@ -11,9 +11,9 @@ output:
 subtitle: An Application to Country Development Data
 classoption: a4paper
 ---
+
 <!-- Comment lines are like this one -->
 <!-- Use "\newpage" when you want a new page break in the pdf output  -->
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -24,17 +24,23 @@ countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
 attach(countries)
 head(countries)
 names(countries)
-# [1] "country_name"   "Life.expec"     "Life.expec.f"  
-# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"  
-# [7] "Agric.employ.."     
+# [1] "country_name"   "Life.expec"     "Life.expec.f"
+# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"
+# [7] "Agric.employ.."
 ```
 
 # Smoothing splines and spline regression
 
 ```{r}
-sm.sp.1 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
-                         cv = FALSE, all.knots = TRUE)
-sm.sp.1
+sm.sp.1 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat),
+                         cv = FALSE, all.knots = TRUE) # using gcv
+# if cv = TRUE we will do LOOCV
+# default all.knots = false
+
+sm.sp.1 # using 15 interations to optimizing lambda
+
+
+# scatterplot, + all knots (= gestrichelte line),sum of smoothing terms = 4.27
 plot(x = log(Life.expec), y = log(Inf.Mort.rat),
      main=paste("Number of knots =",sm.sp.1$fit$nk,
                 "; Equiv. no. params.=",round(sm.sp.1$df,2)))
@@ -43,7 +49,7 @@ lines(sm.sp.1,col=2,lwd=2)
 ```
 
 ```{r}
-sm.sp.2 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+sm.sp.2 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat),
                          cv = FALSE, all.knots = FALSE)
 sm.sp.2
 cat("\nrange(sm.sp.1$y-sm.sp.2$y):")
@@ -56,9 +62,8 @@ abline(v=sm.sp.2$fit$min+sm.sp.2$fit$knot*sm.sp.2$fit$range, col=8, lty=2)
 lines(sm.sp.2,col=2,lwd=2)
 ```
 
-
 ```{r}
-sm.sp.3 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+sm.sp.3 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat),
                          cv = FALSE, all.knots = FALSE, nknots = 20)
 sm.sp.3
 
@@ -84,23 +89,37 @@ lines(sm.sp.1,col=2,lwd=2)
 ```
 
 # Spline regression
+
 ```{r}
 library(splines)
-x <- lg.le <- log(sort(Life.expec)) # x
-y <- lg.im <- log(Inf.Mort.rat)[order(Life.expec)] # y
+x <- lg.le <- log(sort(Life.expec)) # x; sort elements in explanatory variable
+y <- lg.im <- log(Inf.Mort.rat)[order(Life.expec)] # y; sort elements the same as explanatory variable (!important)
 
-t <- seq(min(x),max(x),length= 201)
+# plot(x,y)
+# lines(x,y)
 
-n <- length(x)
-k <- 10 # repeat later with k=40: the resuls are almost identical
-my.knots <- seq(min(x),max(x),length=k)
+t <- seq(min(x),max(x),length= 201) # regular gri
+
+n <- length(x) # number of elements
+k <- 10 # repeat later with k=40: the resuls are almost identical, number of knots to use in the interval a-b
+my.knots <- seq(min(x),max(x),length=k) # = a grid with 10 elements
 # my.knots <- quantile(x,seq(0,1,length=k))
-b.kn <- range(x)+c(-1,1)*.1*(diff(range(x)))
-X.bs <- bs(x,knots=my.knots,Boundary.knots = b.kn)
-t.bs <- predict(X.bs,t)
+
+# plot(x,y)
+# abline(v=my.knots, col=8, lty=2)
+
+# doing regression without smoothing
+# the only smoothing we are using is because we are using 12 elements
+b.kn <- range(x)+c(-1,1)*.1*(diff(range(x))) # boundary knots, min: -10%, maximum: +10%
+X.bs <- bs(x,knots=my.knots,Boundary.knots = b.kn) #
+t.bs <- predict(X.bs,t) # evaluate all functions in t
 last.col <- dim(X.bs)[2]
 X.bs <- X.bs[,-last.col]
+# dim(X.bs)
+# bs returns functions evluated at given points + additionally  B(xi)
 t.bs <- t.bs[,-last.col]
+
+lm.X.bs <- lm(y~x)
 
 plot(t,t.bs[,1],type="l",ylim=c(0,max(t.bs)))
 points(x,X.bs[,1],pch=19,col=1)
@@ -108,23 +127,30 @@ for (j in 2:k){
   lines(t,t.bs[,j],col=j)
   points(x,X.bs[,j],pch=19,col=j)
 }
+
+# points(x, 0*x, pch="|")
+# head(X.bs, 10) -> we see that 6 function is 0 at the beginning
+# tail(x.bs, 10) -> only last 4 function are different than 0 in the last 10 points
+# image(X.bs) -> color map of functions evaluated for each point, uses the matrix Bj(xi) but rotated
 ```
 
 ```{r}
-dt <- t[2]-t[1]
-t.bs.d2 <- diff(t.bs,diff=2)/dt^2
+dt <- t[2]-t[1] # difference between 2 points in t
+t.bs.d2 <- diff(t.bs,diff=2)/dt^2 # difference of difference divided by dt² -> second derivative
 #t.bs.d2 <- splineDesign(my.knots, t,derivs=2+0*t,outer.ok = TRUE)
 
 #ts.plot(t.bs.d2,col=1:k)
-B.bs <- t(t.bs.d2) %*% t.bs.d2 * dt
+
+# = D
+B.bs <- t(t.bs.d2) %*% t.bs.d2 * dt # product of second derivative evaluated for every point at t -> approximation of D in formular
 
 lambda.1 <- .1
 lambda.2 <- .001
 #coef.bs <- solve(t(X.bs)%*%X.bs + lambda*B.bs)%*%t(X.bs)%*%y
 #y.hat <- X.bs %*% coef.bs
-H.1 <- X.bs %*% solve(t(X.bs)%*%X.bs + lambda.1*B.bs)%*%t(X.bs)
+H.1 <- X.bs %*% solve(t(X.bs)%*%X.bs + lambda.1*B.bs)%*%t(X.bs) # = smoothing matrix
 y.hat.1 <- H.1 %*% y
-df.1 <- sum(diag(H.1))
+df.1 <- sum(diag(H.1)) # = equivalent number of parameters
 
 H.2 <- X.bs %*% solve(t(X.bs)%*%X.bs + lambda.2*B.bs)%*%t(X.bs)
 y.hat.2 <- H.2 %*% y
@@ -144,5 +170,8 @@ legend("bottomleft",
        legend=c(paste("lambda =",lambda.1,", df =",round(df.1,2)),
                 paste("lambda =",lambda.2,", df =",round(df.2,2))),
        col=c(2,4),pch=19,lty=1)
+
+# points(x,lm.X.bs$fitted.values, col="magenta", pch=19)
+# lines(x,lm.X.bs$fitted.values, col="magenta", pch=19)
 
 ```

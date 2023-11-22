@@ -127,6 +127,9 @@ big.X[big.n,p] <- 1
 matplot(big.x,big.X,type="l")
 abline(v=my.knots,lty=2,col="grey")
 matpoints(x,X)
+
+# starting with basis of degree 7
+# working with cubic splines
 ```
 
 Then fit a linear model where the explanatory variables are the columns of the matrix with the evaluated B-spline basis. 
@@ -139,6 +142,8 @@ points(x,lm.spl.0$fitted.values,pch=20)
 pred.lm.big.x <- big.X %*% lm.spl.0$coefficients
 lines(big.x,pred.lm.big.x,col=4)
 title(main="Regression spline with degree 0 B-splines basis")
+
+# regression spline with degree 0 without penalty
 ``` 
 
 Combine functions `bs` and `lm` to fit a degree 1 smoothing spline to the data `log(Inf.Mort.rat)` as a function of `log(Life.expec)`.
@@ -188,6 +193,12 @@ lines(x,lm.spl$fitted.values)
 abline(v=my.knots,lty=2,col="grey")
 
 par(op)
+
+# using basis of b-spline of degree 1
+# with linear combinations of breakes in the knots in triangular lines
+# not so flexible because lower number of knots and heigher penalty
+# polygonial line
+# 
 ```
 
 Repeat now for cubic splines (degree equal to 3). 
@@ -231,6 +242,10 @@ lines(x,lm.spl$fitted.values)
 abline(v=my.knots,lty=2,col="grey")
 
 par(op)
+
+# put a lot of knots it is catching all variability (left top)
+# (left bottom) 7 degree of freedom
+# still no penalty - only regression
 ```
 
 ## Comparing `smooth.spline` with the combination of functions `bs` and `lm`
@@ -265,5 +280,6 @@ lines(pred.ss,col=6)
 
 legend("bottomleft",c("bs and lm combination","smooth.spline"),
        lty=1,col=c(1,6))
+
 ```
 

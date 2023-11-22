@@ -55,6 +55,7 @@ lines(lgae,glm.burn$fitted.values,col=4)
 The R script `"IRWLS_logistic_regression.R"` defines the function `logistic.IRWLS` that implements the IRWLS algorithm for fitting a logistic regression model by maximum likelihood. 
 
 ```{r}
+# non parametric version
 source("IRWLS_logistic_regression.R")
 ```
 
@@ -86,7 +87,7 @@ my.spline.glm.burn <- logistic.IRWLS.splines(x,y)
 plot(lgae,superv,main="Regression 0-1 param. and non-param.")
 lines(lgae,glm.burn$fitted.values,col=4)
 lines(lgae,my.glm.burn$fitted.values,col=2,lty=2)
-lines(lgae,my.spline.glm.burn$fitted.values,col=3)
+lines(lgae,my.spline.glm.burn$fitted.values,col=3) # non parametric function = green line
 ```
 
 Now we call again function `logistic.IRWLS.splines` but now we fix a larger number of *degrees of freedom* (`df=20`) and ask the function to plot all the intermediate steps ('plts=TRUE`) in

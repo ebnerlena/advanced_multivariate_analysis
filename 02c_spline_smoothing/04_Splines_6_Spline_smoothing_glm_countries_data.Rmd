@@ -166,6 +166,10 @@ my.spline.glm <- logistic.IRWLS.splines(x,y,df=min(length(unique(x)),length(my.k
 lines(x,my.spline.glm$fitted.values,col=4)
 
 par(op)
+
+# results differ a lot when we fit all the knots (upper left)
+# when only using 2 knots the 2 different approaches lead almost to the same result
+# advice use blue line with moderate number of knots - choosen by cross validatation
 ``` 
 
 ### Fit a generalized nonparametric regression model to explain `ind.esp` as a function of `Agric.employ..`.
