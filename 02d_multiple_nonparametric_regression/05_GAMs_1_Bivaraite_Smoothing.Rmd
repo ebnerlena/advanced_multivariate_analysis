@@ -1,0 +1,159 @@
+---
+title: 'GAM 1: Bivariate Smoothing'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Local Polynomial bivariate non-parametric regression with library `sm`
+
+We are using the following R function:
+
+* `sm.regression` from package `sm`, only useful for bivariate regression.
+
+
+
+Use the Boston Housing dataset to fit the following bivariate non-parametric regression model:
+
+`room` as a function of `lstat` and `age`.
+
+
+```{r, warning=FALSE, message=FALSE}
+library(sm)
+library(rgl)#R graphic library
+
+# load("boston.Rdata")
+library(mlbench)
+# help(BostonHousing)
+data(BostonHousing2)
+boston.c <- BostonHousing2
+
+names(boston.c)[12]<-'room' # change name of room to boston.c
+names(boston.c)
+# [1] "town"    "tract"   "lon"     "lat"     "medv"    "cmedv"   "crim"    "zn"     
+# [9] "indus"   "chas"    "nox"     "room"    "age"     "dis"     "rad"     "tax"    
+# [17] "ptratio" "b"       "lstat" 
+attach(boston.c)
+
+# define percentage of black people from b
+PctgBlack<-100*(0.63+sqrt(b/1000))
+
+
+# room ~ lstat + age
+# using local linear regression
+# h=vector of bandwidths
+a<-sm.regression(x=cbind(lstat,age), y=room, h=c(2.85,10))
+# a<-sm.regression(x=cbind(lstat,age), y=room, h=c(2.85,10), display="slice", col=1)
+z<-a$estimate
+y<-a$eval.points[,2]
+x<-a$eval.points[,1]
+persp(x,y,z, theta =40, phi = 10, d=4,xlab='lstat',ylab='age',zlab='room', 
+      box = TRUE, axes = TRUE,  nticks = 5,ticktype = "detailed") 
+
+persp3d(x,y,z, shininess= 5, col="green",xlab='lstat',ylab='age',zlab='room')
+points3d(x=lstat,y=age, z=room,size=8)
+```
+
+`cmedv` as a function of `lstat` and `age`.
+
+
+```{r, warning=FALSE, message=FALSE}
+# cmedv ~ lstat + age
+a<-sm.regression(x=cbind(lstat,age), y=cmedv, h=c(2.85,3.5))
+z<-a$estimate
+y<-a$eval.points[,2]
+x<-a$eval.points[,1]
+persp(x,y,z, theta =-20, phi = 20, d=4,xlab='lstat',ylab='age',zlab='CMDEV') 
+```
+
+```{r}
+persp3d(x,y,z, shininess= 5, col="green",xlab='lstat',ylab='age',zlab='CMDEV')
+points3d(x=lstat,y=age, z=cmedv,size=8)
+```
+
+# Bivariate splines
+
+We are using the following R function:
+
+* `gam`. Function in package `mgcv` that fits Generalized Additive Models. It also fits Additive Models as a particular case.
+
+```{r, warning=FALSE, message=FALSE}
+library(mgcv)
+```
+
+```{r, eval=FALSE}
+help(package=mgcv)
+help(gam)
+```
+Pay attention to parameters `formula` and `family`.
+
+
+Use the Boston Housing dataset to fit the following bivariate non-parametric regression model:
+
+`room` as a function of `lstat` and `age`.
+
+## Thin plate spline
+
+```{r}
+th.pl.room <- gam(room ~ s(lstat,age, bs="tp"))
+summary(th.pl.room)
+# perspective
+vis.gam(th.pl.room,se=0,theta =40, phi = 10, d=4,nticks=3)
+text(-.61,-.1,'room',srt=90)
+# contour
+vis.gam(th.pl.room,se=0,plot.type="contour",contour.col=1)
+points(lstat,age,col="blue")
+
+```
+
+## Tensor product spline
+
+```{r, warning=FALSE, message=FALSE}
+te.pr.room<-gam(room ~ te(lstat,age, bs="cr"))
+summary(te.pr.room)
+# perspective
+vis.gam(te.pr.room,se=0,theta =40, phi = 10, d=4,nticks=3)
+text(-.61,-.1,'room',srt=90)
+# contour
+vis.gam(te.pr.room,se=0,plot.type="contour",contour.col=1)
+points(lstat,age,col="blue")
+
+```
+
+# Additive Model
+
+Use the Boston Housing dataset to fit the following bivariate additive model:
+
+`room` as a function of `lstat` and `age`.
+
+```{r, warning=FALSE, message=FALSE}
+gam.room<-gam(room ~ s(lstat)+ s(age))
+summary(gam.room)
+# perspective
+vis.gam(gam.room,se=0,theta =40, phi = 10, d=4,nticks=3)
+text(-.61,-.1,'room',srt=90)
+# contour
+vis.gam(gam.room,se=0,plot.type="contour",contour.col=1)
+points(lstat,age,col="blue")
+
+# GAM: Genrealized Additive Model. Functions g_k
+op<-par(mfrow=c(1,2))
+par(pty='s')
+gam.room<-gam(room ~ s(lstat)+ s(age))#,sp=c(40,400))
+plot.gam(gam.room,se=FALSE,rug=FALSE)
+par(op)
+```

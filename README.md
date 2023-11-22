@@ -15,7 +15,7 @@
 - [Non-Parametric Regression](./02a_non_parametric_regression/)
 - [Generalized Non-Parametric Regression](./02b_generalized_non_parametric_regression/)
 - [Spline Smoothing](./02c_spline_smoothing/)
+- [Multiple Nonparametric Regression](./02d_multiple_nonparametric_regression/)
 - [Local Linear Regression Assignment](./04_assignment/)
-
 - [Final Exam 2023](./final_exam_practice/)
 - [Partial Exam Okt. 2023](./partial_exam/)

@@ -1,0 +1,550 @@
+---
+title: 'GAMs 3: Generalized Additive Models'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+subtitle: An Application to Country Development Data
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+We are using country development dataset to demonstrate the
+semiparametric model fitting with `gam` function and other related functions from library `mgcv`. 
+
+Reading countries data set:
+```{r}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+head(countries)
+summary(countries)
+plot(countries[,-1])
+old.par<-par(mfrow=c(2,3))
+for (j in 2:7) hist(countries[,j],main=names(countries)[j])
+par(old.par)
+```
+
+We check the similarity between variables dispersion.
+Thus, when using bivariate smoothing we will be able to decide the 
+most appropriate spline basis: thin plate splines or tensor product splines.
+
+```{r}
+apply(countries[,-1],2,sd)
+```
+
+```{r}
+apply(countries[,-1],2,function(x){diff(range(x))})
+```
+It seems that there are 3 different groups of variables, according to dispersion:
+
+- `Life.expec`, `Life.expec.f`, `Life.expec.m`
+- `le.fm`
+- `Inf.Mort.rat`, `Agric.employ..`
+
+We should use tensor product splines when using two explanatory variables of different groups into the same bivariate smoothing term.
+
+**Classifying countries in two classes, first according to `Agric.employ..`, then according to `Life.expec`.**
+
+The median value of variable `Agric.employ..` is `r median(countries$Agric.employ..)`. 
+Create a new binary variable `ind.agr` (as a factor) indicating for any country if variable `Agric.employ..` is lower than `r median(countries$Agric.employ..)` (1) or not (0).
+This new variable is a development indicator.
+
+```{r}
+countries$ind.agr <- as.factor(as.numeric(
+  countries$Agric.employ..< median(countries$Agric.employ..)
+  ))
+```
+
+The median value of variable `Life.expec` is `r median(countries$Life.expec)`. 
+Create a new binary variable `ind.le` (as a factor) indicating for any country if variable `Life.expec` is greater than `r median(countries$Life.expec)` (1) or not (0).
+This new variable is a development indicator.
+
+```{r}
+countries$ind.le <- as.factor(as.numeric(
+  countries$Life.expec> median(countries$Life.expec)
+  ))
+```
+
+We attach the data frame `countries` to the R search path:
+```{r}
+attach(countries)
+```
+
+# Additive Models
+
+## Explaining `Inf.Mort.rat`.
+
+Use function `gam` from package `mgcv` to fit the following additive models:
+
+* `Inf.Mort.rat ~ Agric.employ.. + Life.expec`
+* `Inf.Mort.rat ~ s(Agric.employ..) + s(Life.expec)`
+* `Inf.Mort.rat ~ s(Agric.employ..,by=ind.le) + s(Life.expec,by=ind.agr)`
+* `Inf.Mort.rat ~ te(Agric.employ.., Life.expec)`
+* `Inf.Mort.rat` as a function of `Agric.employ.., Life.expec.m, Life.expec.f`. Combine linear fits, univariate and bivariate nonparametric components.
+
+Use function `anova` to compare the models you fit two by two. Then propose a final model.
+
+
+
+```{r, warning=FALSE, message=FALSE}
+library(mgcv)
+```
+
+```{r, eval=FALSE}
+help(package=mgcv)
+help(gam)
+help(smooth.terms)
+```
+
+
+**Additive Model: Inf.Mort.rat ~ Agric.employ.. + Life.expec**
+```{r}
+# Linear Model
+am1.0 <- gam(Inf.Mort.rat ~ Agric.employ.. + Life.expec, data=countries)
+summary(am1.0)
+```
+
+```{r}
+# Additive model 1
+am1.1 <- gam(Inf.Mort.rat ~ s(Agric.employ..) + s(Life.expec), data=countries)
+summary(am1.1)
+plot(am1.1,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1)
+```
+
+**3-D representation of the estimated function** 
+```{r, message=FALSE, eval=FALSE}
+library(rgl)
+x <- seq(min(Agric.employ..),max(Agric.employ..), length= 30)
+y <- seq(min(Life.expec),max(Life.expec), length= 30)
+f <- function(x,y) { r <- predict(am1.1, newdata=data.frame(Agric.employ..=x,Life.expec=y))}
+z <- outer(x, y, f)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Agric.employ..", ylab = "Life.expec", zlab = "Inf.Mort.rat")
+```
+
+
+```{r}
+# Additive model 2
+am1.2 <- gam(Inf.Mort.rat ~ s(Agric.employ..,by=ind.le) + s(Life.expec,by=ind.agr), data=countries)
+summary(am1.2)
+plot(am1.2,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+vis.gam(am1.2,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1,)
+```
+
+
+
+
+```{r}
+# Additive model 3
+am1.3 <- gam(Inf.Mort.rat ~ te(Agric.employ..,Life.expec), 
+             data=countries)
+summary(am1.3)
+plot(am1.3,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+plot(am1.3,pages=1,scheme=TRUE)
+vis.gam(am1.3,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1,)
+```
+
+```{r, message=FALSE, eval=FALSE}
+# 3d estimated function
+library(rgl)
+x <- seq(min(Agric.employ..),max(Agric.employ..), length= 30)
+y <- seq(min(Life.expec),max(Life.expec), length= 30)
+f <- function(x,y) { r <- predict(am1.3, newdata=data.frame(Agric.employ..=x,Life.expec=y))}
+z <- outer(x, y, f)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Agric.employ..", ylab = "Life.expec", zlab = "Inf.Mort.rat")
+```
+
+```{r}
+# Additive model 4
+am1.4 <- gam(Inf.Mort.rat ~ s(Agric.employ..) + Life.expec, data=countries)
+summary(am1.4)
+plot(am1.4,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+vis.gam(am1.4,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1,)
+```
+
+```{r, message=FALSE, eval=FALSE}
+# 3d estimated function
+library(rgl)
+x <- seq(min(Agric.employ..),max(Agric.employ..), length= 30)
+y <- seq(min(Life.expec),max(Life.expec), length= 30)
+f <- function(x,y) { r <- predict(am1.4, newdata=data.frame(Agric.employ..=x,Life.expec=y))}
+z <- outer(x, y, f)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Agric.employ..", ylab = "Life.expec", zlab = "Inf.Mort.rat")
+```
+
+```{r, fig.height=5.5, fig.width=6}
+# Additive model 5
+am1.5 <- gam(Inf.Mort.rat ~ s(Agric.employ..) + s(Life.expec) +
+               ti(Agric.employ..,Life.expec), 
+             data=countries)
+summary(am1.5)
+plot(am1.5,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+vis.gam(am1.5,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1,)
+```
+
+```{r}
+# Additive model 6
+am1.6 <- gam(Inf.Mort.rat ~ Agric.employ.. + Life.expec + 
+               ti(Agric.employ..,Life.expec), 
+             data=countries)
+summary(am1.6)
+plot(am1.6,pages=1,residuals=TRUE, cex=2, lwd=2)
+plot(am1.6,pages=1,residuals=TRUE,scheme=TRUE)
+vis.gam(am1.6,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1,)
+```
+
+```{r, message=FALSE, eval=FALSE}
+# 3d estimated function
+library(rgl)
+x <- seq(min(Agric.employ..),max(Agric.employ..), length= 30)
+y <- seq(min(Life.expec),max(Life.expec), length= 30)
+f <- function(x,y) { r <- predict(am1.6, newdata=data.frame(Agric.employ..=x,Life.expec=y))}
+z <- outer(x, y, f)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Agric.employ..", ylab = "Life.expec", zlab = "Inf.Mort.rat")
+```
+** ANOVA type tests **
+```{r}
+anova(am1.0,am1.1,test="F")
+```
+```{r}
+anova(am1.0,am1.2,test="F")
+```
+```{r}
+anova(am1.0,am1.3,test="F")
+```
+
+```{r}
+anova(am1.1,am1.2,test="F")
+```
+```{r}
+anova(am1.3,am1.1,test="F")
+```
+
+```{r}
+anova(am1.2,am1.3,test="F")
+```
+
+```{r}
+anova(am1.1,am1.5,test="F")
+```
+
+```{r}
+anova(am1.3,am1.5,test="F")
+```
+
+```{r}
+anova(am1.4,am1.1,test="F")
+```
+
+```{r}
+anova(am1.0,am1.4,test="F")
+```
+```{r}
+anova(am1.0,am1.6,test="F")
+```
+```{r}
+anova(am1.4,am1.6,test="F")
+```
+
+```{r}
+anova(am1.6,am1.3,test="F")
+```
+
+```{r}
+anova(am1.0, am1.4, am1.6, am1.3, am1.1, am1.2, am1.5,test="F")
+```
+```{r}
+anova(am1.0, am1.4, am1.6, am1.3, am1.1, am1.5,test="F")
+```    
+
+We conclude that the fifth model in the last 'anova' call, that is `am1.1`, 
+is the best model (among the ones we have fitted):
+
+```{r}
+summary(am1.1)
+plot(am1.1,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = -25, phi = 25, r = sqrt(3), d = 1)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = -70, phi = 25, r = sqrt(3), d = 1)
+```
+
+```{r}
+gam.check(am1.1)
+```
+
+## Additive models for the logarithm of Infant Mortality Ratio (EXERCISE)
+
+The distributions of `Inf.Mort.rat` and `Agric.employ..` are asymmetric: 
+
+```{r,fig.height=2.5,fig.width=7.5}
+old.par<-par(mfrow=c(1,3))
+hist(countries$Inf.Mort.rat, main='Inf.Mort.rat')
+hist(countries$Agric.employ.., main='Agric.employ..')
+plot(countries$Agric.employ.., countries$Inf.Mort.rat,
+     xlab='Agric.employ..', ylab='Inf.Mort.rat')
+par(old.par)
+```
+
+We take the logarithm of `Inf.Mort.rat` and the square root of `Agric.employ..` to symmetrize these distributions:
+
+```{r,fig.height=2.5,fig.width=7.5}
+countries$log.Inf.Mort.rat <- log(countries$Inf.Mort.rat)
+countries$sqrt.Agric.employ <- sqrt(countries$Agric.employ..)
+
+old.par<-par(mfrow=c(1,3))
+hist(countries$log.Inf.Mort.rat, main='log.Inf.Mort.rat')
+hist(countries$sqrt.Agric.employ, main='sqrt.Agric.employ')
+plot(countries$sqrt.Agric.employ, countries$log.Inf.Mort.rat,
+     xlab='sqrt.Agric.employ', ylab='log.Inf.Mort.rat')
+par(old.par)
+```
+
+Fit different additive models to explain 'log.Inf.Mort.rat' as a function of one of several variables among the following: `Life.expec`, `le.fm`,
+`sqrt.Agric.employ`, `ind.agr` and `ind.le`.
+Then choose the model (or models) that you consider *the best*.
+
+
+# Generalized Additive Models
+
+## Binary nonparametric regression.  
+
+### Classify countries according to `Agric.employ..`. 
+
+Use function `gam` from package `mgcv`, with `family=binomial`, to fit the following additive models:
+
+* `ind.agr ~ Life.expec + Inf.Mort.rat`
+* `ind.agr ~ s(Life.expec)`
+* `ind.agr ~ s(Inf.Mort.rat)`
+* `ind.agr ~ s(Life.expec) + s(Inf.Mort.rat)`
+* `ind.agr ~ te(Life.expec,Inf.Mort.rat)`
+
+Use function `anova` to compare the models you fit two by two. Then propose a final model.
+
+```{r}
+gam1.0 <- gam(ind.agr ~ Life.expec + Inf.Mort.rat, data=countries,family=binomial) # GLM (logisitc regression)
+summary(gam1.0)
+```
+
+```{r}
+gam1.0.1 <- gam(ind.agr ~ Life.expec, data=countries,family=binomial) # GLM (logisitc regression)
+summary(gam1.0.1)
+```
+
+```{r}
+gam1.1 <- gam(ind.agr ~ s(Life.expec), data=countries,family=binomial)
+summary(gam1.1)
+plot(gam1.1,resid=TRUE)
+plot(gam1.1,resid=FALSE, se=TRUE, 
+     ylim=c(0,1),
+     shift=gam1.1$coefficients[1], 
+     trans=function(x){1/(1+exp(-x))}
+     )
+abline(h=c(0,1),col=8)
+points(Life.expec,as.numeric(ind.agr)-1,col=2,pch=19)
+```
+
+```{r}
+gam1.3 <- gam(ind.agr ~ s(Inf.Mort.rat), data=countries,family=binomial)
+summary(gam1.3)
+plot(gam1.3,resid=T)
+plot(gam1.3,resid=FALSE, se=TRUE, 
+     ylim=c(0,1),
+     shift=gam1.3$coefficients[1], 
+     trans=function(x){1/(1+exp(-x))}
+     )
+abline(h=c(0,1),col=8)
+points(Inf.Mort.rat,as.numeric(ind.agr)-1,col=2,pch=19)
+```
+
+```{r}
+gam1.4 <- gam(ind.agr ~ s(Life.expec) + s(Inf.Mort.rat), data=countries,family=binomial)
+summary(gam1.4)
+plot(gam1.4,pages=1,resid=T)
+
+old.par <- par(mfrow=c(1,2))
+plot(gam1.4,resid=FALSE, se=TRUE, select=1, 
+     ylim=c(0,1),
+     shift=gam1.4$coefficients[1], 
+     trans=function(x){1/(1+exp(-x))}
+     )
+abline(h=c(0,1),col=8)
+points(Life.expec,as.numeric(ind.agr)-1,col=2,pch=19)
+
+plot(gam1.4,resid=FALSE, se=TRUE, select=2, 
+     ylim=c(0,1),
+     shift=gam1.4$coefficients[1], 
+     trans=function(x){1/(1+exp(-x))}
+     )
+abline(h=c(0,1),col=8)
+points(Inf.Mort.rat,as.numeric(ind.agr)-1,col=2,pch=19)
+par(old.par)
+```
+
+```{r, eval=FALSE}
+# 3d estimated function
+library(rgl)
+x <- seq(min(Life.expec),max(Life.expec), length= 30)
+y <- seq(min(Inf.Mort.rat),max(Inf.Mort.rat), length= 30)
+# predicting with the nonparametric fit (type="link", default)
+f <- function(x,y) { r <- predict(gam1.4, newdata=data.frame(Life.expec=x,Inf.Mort.rat=y))}
+z <- outer(x, y, f)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Life.expec", ylab = "Inf.Mort.rat", zlab = "ind.agr")
+```
+
+```{r, eval=FALSE}
+# 3d estimated function
+# predicting the response variable
+fr <- function(x,y) { r <- predict(gam1.4, newdata=data.frame(Life.expec=x,Inf.Mort.rat=y), type="response")}
+zr <- outer(x, y, fr)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, zr, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Life.expec", ylab = "Inf.Mort.rat", zlab = "ind.agr")
+```
+
+```{r}
+gam1.5 <- gam(ind.agr ~ te(Life.expec,Inf.Mort.rat),
+              data=countries,family=binomial)
+summary(gam1.5)
+plot(gam1.5,resid=T,cex=2)
+plot(gam1.5,scheme=T)
+```
+
+```{r, eval=FALSE}
+# 3d estimated function
+library(rgl)
+x <- seq(min(Life.expec),max(Life.expec), length= 30)
+y <- seq(min(Inf.Mort.rat),max(Inf.Mort.rat), length= 30)
+f <- function(x,y) { r <- predict(gam1.5, newdata=data.frame(Life.expec=x,Inf.Mort.rat=y))}
+z <- outer(x, y, f)
+open3d()
+bg3d("white")
+material3d(col="black")
+persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
+        xlab = "Life.expec", ylab = "Inf.Mort.rat", zlab = "ind.agr")
+```
+
+**ANOVA type tests**
+
+```{r}
+anova(gam1.0.1,gam1.0,test="Chisq")
+```
+
+```{r}
+anova(gam1.0,gam1.4,test="Chisq")
+```
+```{r}
+anova(gam1.1,gam1.4,test="Chisq")
+```
+```{r}
+anova(gam1.3,gam1.4,test="Chisq")
+```
+```{r}
+anova(gam1.5,gam1.4,test="Chisq")
+```
+```{r}
+anova(gam1.0,gam1.5,test="Chisq")
+```
+
+```{r}
+anova(gam1.0,gam1.1,test="Chisq")
+```
+
+```{r}
+anova(gam1.1,gam1.5,test="Chisq")
+```
+
+```{r}
+anova(gam1.0.1,gam1.1,test="Chisq")
+```
+
+
+```{r}
+anova(gam1.0.1,gam1.0,gam1.1,gam1.3,gam1.5,gam1.4,test="Chisq")
+```
+```{r}
+anova(gam1.0.1,gam1.0,gam1.3,gam1.5,gam1.4,test="Chisq")
+```
+
+We conclude that the fourth and fith models in the last 'anova' call, 
+that is `gam1.5` and `gam1.4`, are the best models (among the ones we have fitted).
+
+```{r}
+summary(am1.1)
+plot(am1.1,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = 40, phi = 25, r = sqrt(3), d = 1)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = -25, phi = 25, r = sqrt(3), d = 1)
+vis.gam(am1.1,view=c("Agric.employ..","Life.expec"),
+        theta = -70, phi = 25, r = sqrt(3), d = 1)
+```
+
+```{r}
+gam.check(am1.1)
+```
+
+
+## GAM for the Poisson nonparametric regression (EXERCISE)
+
+Variable `le.fm` always takes non-negative values. Define the variable
+
+```{r}
+le.fm.r <- round(le.fm)
+```
+
+Use function `gam` from package `mgcv`, with `family=poisson`, to fit the following local Poisson regression models: 
+
+* `le.fm.r ~ Inf.Mort.rat + Life.expec` 
+* `le.fm.r ~ s(Inf.Mort.rat) + Life.expec` 
+* `le.fm.r ~ Inf.Mort.rat + s(Life.expec)` 
+* `le.fm.r ~ s(Inf.Mort.rat) + s(Life.expec)` 
+* `le.fm.r ~ te(Inf.Mort.rat,Life.expec)` 
+
+Use function `anova` to compare the models you fit two by two. Then propose a final model.
+
+
+# Hirsutism dataset (EXERCISE)
+Consider the Hirsutism dataset.
+Fit several GAM models (including semiparametric models) explaining `FGm12` as a function of the variables that were measured at the beginning of the clinical trial (including `FGm0`) and `Treatment` (treated as factor). Use functions `summary`, `plot` and `vis.gam` to get an insight into the fitted models.
+Then use function `anova` to select among them the model (or models) that you think is (are) the most appropriate.

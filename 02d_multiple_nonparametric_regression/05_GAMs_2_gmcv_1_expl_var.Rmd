@@ -1,0 +1,95 @@
+---
+title: 'GAMs 2: mgcv::gam for 1 explanatory variable'
+author: "Pedro Delicado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    number_sections: yes
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+subtitle: An Application to Country Development Data
+classoption: a4paper
+---
+<!-- Comment lines are like this one -->
+<!-- Use "\newpage" when you want a new page break in the pdf output  -->
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+countries<-read.csv2(file="HDI.2017.subset.csv",row.names = 1)
+attach(countries)
+head(countries)
+names(countries)
+# [1] "country_name"   "Life.expec"     "Life.expec.f"  
+# [4] "Life.expec.m"   "le.fm"          "Inf.Mort.rat"  
+# [7] "Agric.employ.."     
+```
+
+# Smoothing spline
+
+```{r}
+sm.sp.1 <- smooth.spline(x = log(Life.expec), y = log(Inf.Mort.rat), 
+                         cv = FALSE, all.knots = TRUE)
+sm.sp.1
+plot(x = log(Life.expec), y = log(Inf.Mort.rat),
+     main=paste("Number of knots =",sm.sp.1$fit$nk,
+                "; Equiv. no. params.=",round(sm.sp.1$df,2)))
+abline(v=sm.sp.1$fit$min+sm.sp.1$fit$knot*sm.sp.1$fit$range, col=8, lty=2)
+lines(sm.sp.1,col=2,lwd=2)
+```
+
+
+# mgcv for 1 explanatory variable
+
+```{r}
+lg.LE <- log(Life.expec)
+lg.IMR <- log(Inf.Mort.rat)
+
+library(mgcv)
+```
+
+
+```{r}
+spl_gam_s_tp <- gam(lg.IMR ~ s(lg.LE))#bs="tp" by default
+summary(spl_gam_s_tp)
+plot(spl_gam_s_tp, residuals = TRUE,
+     shade=TRUE, cex=2, lwd=2, 
+     shift = spl_gam_s_tp$coefficients[1],
+     seWithMean=TRUE,
+     main=paste("Equiv. no. params.=",
+                round(sum(spl_gam_s_tp$edf),2)))
+lines(sm.sp.1,col=2,lwd=2)
+```
+
+
+```{r}
+spl_gam_s_cr <- gam(lg.IMR ~ s(lg.LE,bs="cr"))
+summary(spl_gam_s_cr)
+plot(spl_gam_s_cr, residuals = TRUE,
+     shade=TRUE, cex=2, lwd=2, 
+     shift = spl_gam_s_cr$coefficients[1],
+     seWithMean=TRUE,
+     main=paste("Equiv. no. params.=",
+                round(sum(spl_gam_s_cr$edf),2)))
+abline(v=spl_gam_s_cr$smooth[[1]]$xp, 
+       col=8, lty=2)
+lines(sm.sp.1,col=2,lwd=2)
+```
+
+```{r}
+spl_gam_te_cr <- gam(lg.IMR ~ te(lg.LE,bs="cr",k=10)) # by default, k=5
+summary(spl_gam_te_cr)
+plot(spl_gam_te_cr, residuals = TRUE,
+     shade=TRUE, cex=2, lwd=2, 
+     shift = spl_gam_te_cr$coefficients[1],
+     seWithMean=TRUE,
+     main=paste("Equiv. no. params.=",
+                round(sum(spl_gam_te_cr$edf),2)))
+abline(v=spl_gam_te_cr$smooth[[1]]$margin[[1]]$xp, 
+       col=8, lty=2)
+lines(sm.sp.1,col=2,lwd=2)
+```
