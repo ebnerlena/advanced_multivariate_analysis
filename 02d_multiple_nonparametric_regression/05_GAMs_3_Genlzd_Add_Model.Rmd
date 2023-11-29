@@ -60,6 +60,7 @@ Create a new binary variable `ind.agr` (as a factor) indicating for any country 
 This new variable is a development indicator.
 
 ```{r}
+# cutting countries by the median
 countries$ind.agr <- as.factor(as.numeric(
   countries$Agric.employ..< median(countries$Agric.employ..)
   ))
@@ -86,9 +87,9 @@ attach(countries)
 
 Use function `gam` from package `mgcv` to fit the following additive models:
 
-* `Inf.Mort.rat ~ Agric.employ.. + Life.expec`
-* `Inf.Mort.rat ~ s(Agric.employ..) + s(Life.expec)`
-* `Inf.Mort.rat ~ s(Agric.employ..,by=ind.le) + s(Life.expec,by=ind.agr)`
+* `Inf.Mort.rat ~ Agric.employ.. + Life.expec` (linear model)
+* `Inf.Mort.rat ~ s(Agric.employ..) + s(Life.expec)` (additive model)
+* `Inf.Mort.rat ~ s(Agric.employ..,by=ind.le) + s(Life.expec,by=ind.agr)` (nonparametric model depending on 2 vars)c, combining a linear model with factors
 * `Inf.Mort.rat ~ te(Agric.employ.., Life.expec)`
 * `Inf.Mort.rat` as a function of `Agric.employ.., Life.expec.m, Life.expec.f`. Combine linear fits, univariate and bivariate nonparametric components.
 
@@ -140,6 +141,7 @@ persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
 
 ```{r}
 # Additive model 2
+# by using by=inde.le we have 4 explanatory vars
 am1.2 <- gam(Inf.Mort.rat ~ s(Agric.employ..,by=ind.le) + s(Life.expec,by=ind.agr), data=countries)
 summary(am1.2)
 plot(am1.2,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
@@ -180,7 +182,7 @@ persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
 am1.4 <- gam(Inf.Mort.rat ~ s(Agric.employ..) + Life.expec, data=countries)
 summary(am1.4)
 plot(am1.4,pages=1,residuals=TRUE, shade=TRUE, cex=2, lwd=2)
-vis.gam(am1.4,view=c("Agric.employ..","Life.expec"),
+vis.gam(am1.4,view=c("Agric.employ..","Life.expec"), # view = indicate pairs of variables at which surface should be estimated, otherwise gam uses first 2 vars
         theta = 40, phi = 25, r = sqrt(3), d = 1,)
 ```
 

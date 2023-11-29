@@ -54,11 +54,22 @@ library(mgcv)
 
 
 ```{r}
+# define formular for gam function
+# lg.IMR is response var
+# lg.IMR ~ lg.LE -> would be fitting a linear model = lm(lg.IMR ~ lg.LE)
+
+# lm_gam_s_tp <- gam(lg.IMR ~ lg.LE)
+# lm_s_tp <- lm(lg.IMR ~ lg.LE)
+# summary(lm_gam_s_tp)
+# summary(lm_s_tp)
+
+# using gam we fit a nonparametric model, spline regression with only 1 explanatory variable
+# function as has several parameters ?s e.g. if we use fx=True we usse a regression spline without penalty
 spl_gam_s_tp <- gam(lg.IMR ~ s(lg.LE))#bs="tp" by default
 summary(spl_gam_s_tp)
 plot(spl_gam_s_tp, residuals = TRUE,
      shade=TRUE, cex=2, lwd=2, 
-     shift = spl_gam_s_tp$coefficients[1],
+     shift = spl_gam_s_tp$coefficients[1], # if we donot define this we do get a function without the intercept
      seWithMean=TRUE,
      main=paste("Equiv. no. params.=",
                 round(sum(spl_gam_s_tp$edf),2)))
@@ -67,6 +78,7 @@ lines(sm.sp.1,col=2,lwd=2)
 
 
 ```{r}
+# when we don't use k, it takes the default k which is 10 for 1 explanatory variable
 spl_gam_s_cr <- gam(lg.IMR ~ s(lg.LE,bs="cr"))
 summary(spl_gam_s_cr)
 plot(spl_gam_s_cr, residuals = TRUE,
@@ -81,7 +93,7 @@ lines(sm.sp.1,col=2,lwd=2)
 ```
 
 ```{r}
-spl_gam_te_cr <- gam(lg.IMR ~ te(lg.LE,bs="cr",k=10)) # by default, k=5
+spl_gam_te_cr <- gam(lg.IMR ~ te(lg.LE,bs="cr",k=15)) # by default, k=10
 summary(spl_gam_te_cr)
 plot(spl_gam_te_cr, residuals = TRUE,
      shade=TRUE, cex=2, lwd=2, 
