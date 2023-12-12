@@ -1,0 +1,609 @@
+---
+title: 'Interpretability and Explainability in Machine Learning'
+subtitle: 'Washington D.C. Bike Sharing Dataset'
+author: "Pedro Delicado, Universitat Politècnica de Catalunya - Barcelona TECH"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+path.data.0 <- "./" #To be replaced by the appropriate path directory
+```
+
+## Include libraries
+```{r, message=FALSE, warning=FALSE}
+library(ranger)
+library(randomForest)
+library(caret)
+library(vip)
+library(DALEX)
+library(DALEXtra)
+library(lime)
+library(iml)
+library(localModel)
+# library(fastshap) # Attention! It re-define "explain" from DALEX
+if (require(ghostvar)){library(ghostvar)}
+library(mgcv)
+library(gridExtra)
+```
+
+# Washington D.C. Bike Sharing Dataset
+
+[UC Irvine Machine Learning Repository, Bike Sharing Dataset](https://archive.ics.uci.edu/ml/datasets/bike+sharing+dataset). 
+
+
+Fanaee-T and Gama (2014) compile two data sets with daily and hourly (respectively) information on the bike-sharing rental service in Washington D.C., corresponding to years 2011 and 2012.
+
+> Fanaee-T, H. and J. Gama (2014). Event labeling combining ensemble detectors and background knowledge. *Progress in Artificial Intelligence*, **2**, 113-127.
+
+The daily data set has 731 rows (one for each day of years 2011 and 2012, that was a leap year) and 16 variables.
+
+   - `instant`:  row index, going from 1 to 731. 
+   - `dteday`: date (character).
+   - `mnth`:  1 for January, until 12 for December.
+   - `season`: season (1:winter, 2:spring, 3:summer, 4:fall).
+   - `yr`:  year (0: 2011, 1:2012).
+   - `holiday`: weather day is holiday or not.
+   - `weekday` : day of the week.
+   - `workingday`: if day is neither weekend nor holiday is 1, otherwise is 0.  
+   - `weathersit`: weather situation indicator:
+		- 1: Clear, Few clouds, Partly cloudy, Partly cloudy.
+		- 2: Mist + Cloudy, Mist + Broken clouds, Mist + Few clouds, Mist.
+		- 3: Light Snow, Light Rain + Thunderstorm + Scattered clouds, Light Rain + Scattered clouds.
+		- 4: Heavy Rain + Ice Pallets + Thunderstorm + Mist, Snow + Fog.
+   - `temp`:  temperature in Celsius. The values are divided to 41 (max).
+   - `atemp`: feeling temperature in Celsius. The values are divided to 50 (max). 
+   - `hum`: humidity. The values are divided to 100 (max).
+   - `windspeed`: wind speed. The values are divided to 67 (max). 	
+   - `casual`: count of rental bikes by casual users (not registered).
+   - `registered`: count of rental bikes by registered users.
+   - `cnt`: count of total rental bikes (casual + registered).
+
+Potential response variables:
+
+  - log of the number of total rental bikes.
+  - log of the number of rental bikes by casual users.
+  
+	
+```{r}
+path.data <- paste0(path.data.0,"Bike-Sharing-Dataset/")
+day <- read.csv(paste0(path.data,"day.csv"),as.is=TRUE)
+hour <- read.csv(paste0(path.data,"hour.csv"),as.is=TRUE)
+```
+
+
+## Daily data (2011-2012)
+
+### Show data
+
+```{r}
+head(day)
+```
+
+```{r}
+#, fig.width=9, fig.height=6}
+plot(day$cnt,col=day$season,pch=1+18*day$workingday,
+     xlab="Day", ylab="Total users",
+     main="Total daily users in 2011 and 2012, colored by season",
+     ylim=c(0,9000))
+legend("topleft",c("No working day","Working day"),pch=c(1,19),col=1)
+
+```
+
+
+
+```{r}
+bikes <- day
+# season: (1:winter, 2:spring, 3:summer, 4:fall)
+bikes$spring <- as.integer(bikes$season==1)
+bikes$summer <- as.integer(bikes$season==3)
+bikes$fall <- as.integer(bikes$season==4)
+#
+bikes$mnth.2 <- bikes$mnth^2/12^2 
+bikes$mnth.3 <- bikes$mnth^3/12^3 
+bikes$mnth <- bikes$mnth/12 
+# bikes$mnth <- (bikes$mnth-6.5)/5.5 
+# bikes$mnth.2 <- bikes$mnth^2 
+# bikes$mnth.3 <- bikes$mnth^3 
+#
+bikes$weather.good <- as.integer(bikes$weathersit==1)
+bikes$weather.med <- as.integer(bikes$weathersit==2)
+bikes$weather.bad <- as.integer(bikes$weathersit==3)
+
+# [1] "instant"      "dteday"       "season"       "yr"          
+# [5] "mnth"         "holiday"      "weekday"      "workingday"  
+# [9] "weathersit"   "temp"         "atemp"        "hum"         
+# [13] "windspeed"    "casual"       "registered"   "cnt"         
+# [17] "spring"       "summer"       "fall"         "mnth.2"      
+# [21] "mnth.3"       "weather.good" "weather.med"  "weather.bad" 
+
+bikes2 <- bikes[,c(1, 14:16,4,17:19,5,20,21,8,23:24,10:13)]
+# [1] "instant"     "casual"      "registered"  "cnt"         "yr"         
+# [6] "spring"      "summer"      "fall"        "mnth"        "mnth.2"     
+# [11] "mnth.3"      "workingday"  "weather.med" "weather.bad" "temp"       
+# [16] "atemp"       "hum"         "windspeed"  
+bikes2$log.casual <- log(bikes2$casual)
+bikes2$log.cnt <- log(bikes2$cnt)
+```
+
+
+
+```{r}
+plot(bikes2$cnt,col=bikes$season,pch=1+18*bikes$workingday,
+     xlab="Day", ylab="Total users",
+     main="Total users in 2011 and 2012, colored by season",
+)
+legend("topleft",c("No working day","Working day"),pch=c(1,19),col=4)
+# abline(v=600.5,col=8,lwd=3)
+# text(600,3550,"Training sample",pos=2)
+# text(601,3550,"Test sample",pos=4)
+```
+
+
+```{r}
+plot(bikes2$casual,col=bikes$season,pch=1+18*bikes$workingday,
+     xlab="Day", ylab="Casual users",
+     main="Casual users in 2011 and 2012, colored by season",
+     ylim=c(0,3600))
+legend("topleft",c("No working day","Working day"),pch=c(1,19),col=4)
+# abline(v=600.5,col=8,lwd=3)
+# text(600,3550,"Training sample",pos=2)
+# text(601,3550,"Test sample",pos=4)
+```
+
+
+```{r}
+plot(bikes2$log.cnt,col=bikes$season,pch=1+18*bikes$workingday,
+     xlab="Day", ylab="log(cnt)",
+     main="Total count of users (in logs) in 2011 and 2012, colored by season")
+legend("bottomleft",c("No working day","Working day"),pch=c(1,19),col=4)
+# abline(v=600.5,col=8,lwd=3)
+# text(600,3,"Training sample",pos=2)
+# text(601,3,"Test sample",pos=4)
+```
+```{r}
+plot(bikes2$log.casual,col=bikes$season,pch=1+18*bikes$workingday,
+     xlab="Day", ylab="log(casual users)",
+     main="Casual users (in logs) in 2011 and 2012, colored by season")
+legend("bottomleft",c("No working day","Working day"),pch=c(1,19),col=4)
+# abline(v=600.5,col=8,lwd=3)
+# text(600,3,"Training sample",pos=2)
+# text(601,3,"Test sample",pos=4)
+```
+
+```{r}
+plot(bikes2$temp, bikes2$cnt,col=day$yr+1,pch=19)
+legend("topleft",c("Year 2011", "Year 2012"),col=c(1,2),pch=19)
+```
+
+
+### Data processing: Creating training and test sets, and removing certain variables
+```{r}
+# names(bikes2)
+#  [1] "instant"     "casual"      "registered"  "cnt"        
+#  [5] "yr"          "spring"      "summer"      "fall"    
+#  [9] "mnth"        "mnth.2"      "mnth.3"      "workingday" 
+# [13] "weather.med" "weather.bad" "temp"        "atemp"      
+# [17] "hum"         "windspeed"   "log.casual"  "log.cnt"
+
+day_selected <- bikes2[,c(4:15,17,18)]
+head(day_selected)
+
+I.train <- sort( sample(1:dim(day_selected)[1],500,replace=FALSE) )
+day_sel_train <- day_selected[I.train,]
+day_sel_test <- day_selected[-I.train,]
+```
+
+# 1. Fit a Random Forest
+
+## (1) Split-criterion in a regression tree.
+Let us revise the computation of the split-criterion in a regression tree.
+
+```{r}
+split_criterion <- function(y, split.var=y){
+  y <- y[order(split.var)]
+  n <- length(y)
+  uni.spl.var <- sort(unique(split.var))
+  m <- length(uni.spl.var)
+  Q <- numeric(m+1)
+  Q[1] <- Q[m+1] <- (n-1)*var(y)
+  #Q[2] <- (n-2)*var(y[2:n])
+  for (i in 2:m){
+    ni <- sum(split.var<uni.spl.var[i])
+    Q[i] <- 
+      ifelse(ni>1,(ni-2)*var(y[1:ni]),0) + 
+      ifelse(n-ni>1, (n-ni)*var(y[(ni+1):n]),0)
+  }
+  #Q[m] <- (n-2)*var(y[1:(n-1)])
+  Q <- Q/Q[1]
+  wminQ <- which.min(Q)
+  return(list(Q=Q, split.var=split.var, 
+              split=mean(uni.spl.var[wminQ+c(-1,0)]),
+              Qsplit=Q[wminQ],
+              wminQ=wminQ/(m+1))
+         )
+}
+```
+
+```{r}
+aux <- split_criterion(day_sel_train$cnt)
+Q0<-aux$Q
+m <- length(Q0)-1
+plot((0:m)/m,Q0, type="l", lty=2, 
+     xlab="Cumul. freq. of split variables",ylab="Split criterion")
+abline(h=1,col=8,lty=2)
+
+p <- dim(day_sel_train)[2]-1
+splits <- numeric(p)
+Qsplits <- numeric(p)+1
+wminQ <- numeric(p)
+for (j in (1:p)[-(6:7)]){
+  aux <- split_criterion(day_sel_train$cnt,split.var = day_sel_train[,j+1])
+  Q<-aux$Q
+  #print(Q)
+  m <- length(Q)-1
+  splits[j] <- aux$split
+  Qsplits[j] <- aux$Qsplit
+  wminQ[j]<-aux$wminQ
+  lines((0:m)/m,Q, type="l", col=j, lty=j)
+}
+var.split <- which.min(Qsplits)
+abline(v=wminQ[var.split],col=var.split, lty=var.split)
+text(wminQ[var.split],(min(Q0)+Qsplits[var.split])/2,
+     names(day_sel_train)[var.split+1],col=var.split,pos=4)
+
+# every curve corresponds to one explanatory variable
+# x axis is every possible possible value of splits
+# best cut s for month would be o.25 (cyan)
+# 
+```
+
+
+## (2) Random forest. Variable Importance by the reduction of the impurity.
+First the *Variable Importance* is measured by the reduction of the **impurity** at the splits defined by each variable.
+The *impurity* measure is the variance of the responses for regression (and the Gini index for classification).
+
+```{r}
+model_rf_imp <- ranger(
+  cnt ~ .,
+  data = day_sel_train[,-c(7,8)], 
+  importance='impurity' # default = none, no importances will be computed
+)
+print(model_rf_imp)
+
+# ranger.importance -> survival = time to a specific event
+```
+
+
+## Random forest (3). Variable Importance by out-of-bag random permutations.
+Now the measure of *Variable Importance* by *random permutations* of the values of each variable in the out-of-bag samples.
+
+```{r}
+model_rf_perm <- ranger(
+  cnt ~ .,
+  data = day_sel_train[,-c(7,8)], 
+  importance='permutation'
+)
+print(model_rf_perm)
+```
+
+## Graphical representation of Variable Importance
+```{r}
+# vip = variable importance
+rf_imp_vip <- vip(model_rf_imp, num_features = 11)
+rf_perm_vip <- vip(model_rf_perm, num_features = 11)
+grid.arrange(rf_imp_vip, rf_perm_vip, ncol=2, top="Left: Reduction in impurity at splits. Right: Out-of-bag permutations")
+# plots 11 most important variables (default is 10)
+```
+
+
+# 2. Shapley Values
+
+```{r}
+rf_imp_vip <- vip(model_rf_imp, num_features = 11)
+rf_perm_vip <- vip(model_rf_perm, num_features = 11)
+rf_shapley <- vip(model_rf_imp, method="shap",
+                  pred_wrapper=yhat, num_features = 11,
+                  train = day_sel_train, # argument 'train' must be provided
+                  newdata=day_sel_test[,-c(1,7,8)]) 
+grid.arrange(rf_imp_vip, rf_perm_vip, rf_shapley,
+             ncol=2, nrow=2,
+             top="Top left: Impurity. Top right: oob permutations. Bottom left: Shapley values"
+            )
+```
+
+
+
+## Fitting a linear model and a gam model
+
+```{r}
+lm_bikes <- lm(cnt ~ ., data = day_sel_train)
+(summ_lm_bikes <- summary(lm_bikes))
+```
+
+```{r}
+gam_bikes <- gam(cnt ~ yr + spring + summer + fall + s(mnth) + 
+                   workingday + weather.med + weather.bad + 
+                 s(temp) + s(hum) + s(windspeed), 
+                 data = day_sel_train)
+(summ_gam_bikes <- summary(gam_bikes))
+```
+
+```{r}
+plot(gam_bikes)
+```
+
+```{r}
+#DALEX::explain(lm_bikes, X=day_sel_train,
+#        pred_wrapper=predict.lm,
+#        newdata=day_sel_test[,-11])
+
+lm_bikes_shapley <- vip(lm_bikes, method="shap",
+                  pred_wrapper=predict.lm,
+                  train=day_sel_train, # train set must be specified
+                  newdata=day_sel_test[,-1], 
+                  num_features = 14,
+                  exact=TRUE)
+
+plot(lm_bikes_shapley)
+```
+
+```{r}
+gam_bikes_shapley <- vip(gam_bikes, method="shap",
+                  pred_wrapper=predict.gam,
+                  train=day_sel_train, # train set must be specified
+                  newdata=day_sel_test[,-1],
+                  num_features = 11,
+                  exact=TRUE)
+
+plot(gam_bikes_shapley)
+```
+
+
+```{r}
+grid.arrange(rf_imp_vip, rf_shapley, 
+             lm_bikes_shapley, gam_bikes_shapley, 
+             ncol=2, nrow=2,
+             top="1,1: RF Impurity. 1,2: Shapley RF. 2,1: Shapley lm. 2,2: Shapley gam"
+)
+```
+
+# 3. Relevance by Ghost Variables
+
+```{r,fig.width=8,fig.height=12}
+library(grid)
+source("relev.ghost.var.R")
+Rel_Gh_Var <- relev.ghost.var(model=gam_bikes, 
+                              newdata = day_sel_test[, -1],
+                              y.ts = day_sel_test[, 1],
+                              func.model.ghost.var = lm
+)
+plot.relev.ghost.var(Rel_Gh_Var,n1=500,ncols.plot = 3)
+```
+
+```{r,fig.width=8,fig.height=6}
+aux <- cbind(Rel_Gh_Var$relev.ghost,gam_bikes_shapley$data$Importance)
+plot(aux[,1],aux[,2],col=0,xlab="Relev. by Ghost Variables",ylab="Shapley Var. Imp.")
+text(aux[,1],aux[,2],row.names(aux))
+```
+
+# 4. Global Importance Measures and Plots using the library DALEX
+
+```{r}
+# Using library DALEX
+# help(package="DALEX")
+# ? explain
+explainer_rf <- explain.default(model = model_rf_imp,  
+                               data = day_sel_test[, -c(1,7,8)],
+                               y = day_sel_test$cnt, 
+                               label = "Random Forest")
+``` 
+
+## Random Permutations Variable Importance
+
+```{r}
+# ?model_parts
+Rnd_Perm <- model_parts(
+  explainer_rf,
+  N = NULL, # All available data are used
+  B = 10   # number of permutations to be used, with B = 10 used by default
+)
+
+Rnd_Perm
+
+plot(Rnd_Perm)
+```
+
+```{r}
+# Creating an object of class "vi" from the "model_parts" object created by DALEX # This is necesarry to 
+aux.plot <- plot(Rnd_Perm)
+dropout_loss.y <- Rnd_Perm$dropout_loss[1]
+aux.I <- order(-aux.plot$data$dropout_loss.x)
+rf_perm_DALEX_as_vi <- tibble::tibble(aux.plot$data[aux.I,c(2,4)])
+class(rf_perm_DALEX_as_vi) <- c("vi", class(rf_perm_DALEX_as_vi))
+names(rf_perm_DALEX_as_vi) <- c("Variable", "Importance")
+rf_perm_DALEX_as_vi$Importance <- 
+  rf_perm_DALEX_as_vi$Importance - dropout_loss.y
+
+# Creating the ggpolt: 
+rf_perm_DALEX_vip <- vip(rf_perm_DALEX_as_vi)
+
+grid.arrange(rf_imp_vip, rf_perm_vip,
+             rf_perm_DALEX_vip, ncol=2, nrow=2,
+             top="Top left: Impurity. Top right: oob permutations. Bottom left: test sample permutations"
+             )
+```
+
+
+## Partial Dependence Plot
+
+The function that allows computation of PD profiles in the DALEX package is 
+`model_profile()`. 
+The only required argument is `explainer`, which indicates the explainer-object 
+(created with the `DALEX::explain()` function) for the model to be explained.
+
+```{r, fig.height=12, fig.width=6}
+# ?model_profile
+PDP_rf <- model_profile(
+  explainer=explainer_rf,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "partial" #  partial, conditional or accumulated
+)
+
+plot(PDP_rf, facet_ncol=2)
+```
+
+## Local (or Conditional) Dependence Plot
+
+```{r, fig.height=12, fig.width=6}
+CDP_rf <- model_profile(
+  explainer=explainer_rf,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "conditional" #  partial, conditional or accumulated
+)
+
+plot(CDP_rf, facet_ncol=2)
+```
+
+
+## Accumulated Local Effects
+
+```{r, fig.height=12, fig.width=6}
+# ?model_profile
+ALE_rf <- model_profile(
+  explainer=explainer_rf,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "accumulated" #  partial, conditional or accumulated
+)
+
+plot(ALE_rf, facet_ncol=2)
+```
+
+
+# 5. Local explainers with library DALEX
+
+We choose an instance in of 2011, and another one in 2012, the prediction for which we want to explain.
+
+```{r}
+aux <- which(day[-I.train,2]=="2011-10-04")
+(october_4_2011 <- day_sel_test[aux,])
+
+aux <- which(day[I.train,2]=="2012-10-05")
+(october_4_2012 <- day_sel_train[aux,])
+```
+
+## SHAP 
+
+```{r}
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = october_4_2011,
+                            type = "shap")
+
+bd_rf
+plot(bd_rf)
+```
+
+```{r}
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = october_4_2012,
+                            type = "shap")
+
+bd_rf
+plot(bd_rf)
+```
+
+## Break-down plots
+
+```{r}
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = october_4_2011,
+                            type = "break_down")
+
+bd_rf
+plot(bd_rf, max_features=11)
+```
+
+```{r}
+bd_rf <- predict_parts(explainer = explainer_rf,
+                 new_observation = october_4_2012,
+                            type = "break_down")
+
+bd_rf
+plot(bd_rf, max_features=11)
+```
+
+
+## LIME
+
+```{r} 
+lime_rf <- predict_surrogate(explainer = explainer_rf, 
+                  new_observation = october_4_2011[,-1], 
+                  type = "localModel")
+                  #type = "iml") # it does not work
+                  #n_features = 6, 
+                  #n_permutations = 1000,
+                  #type = "lime") # it does not work
+
+lime_rf 
+
+plot(lime_rf)
+```
+
+```{r} 
+lime_rf <- predict_surrogate(explainer = explainer_rf, 
+                  new_observation = october_4_2012[,-1], 
+                  type = "localModel")
+                  #type = "iml") # it does not work
+                  #n_features = 6, 
+                  #n_permutations = 1000,
+                  #type = "lime") # it does not work
+
+lime_rf 
+
+plot(lime_rf)
+```
+
+
+## Local Graphics
+
+### Individual conditional expectation (ICE) plot, or ceteris paribus plot
+
+```{r, fig.height=12, fig.width=6}
+cp_rf <- predict_profile(explainer = explainer_rf, 
+                           new_observation = october_4_2011)
+cp_rf
+
+plot(cp_rf, facet_ncol=2)
+```
+
+```{r, fig.height=12, fig.width=6}
+cp_rf <- predict_profile(explainer = explainer_rf, 
+                           new_observation = october_4_2012)
+cp_rf
+
+plot(cp_rf, facet_ncol=2)
+```
+
+```{r}
+mp_rf <- model_profile(explainer = explainer_rf,
+  variables = "temp",
+  N = 100,
+  type = "partial"
+)
+
+plot(mp_rf, geom = "profiles") +  
+  ggtitle("Ceteris-paribus and partial-dependence profiles for temp") 
+```
