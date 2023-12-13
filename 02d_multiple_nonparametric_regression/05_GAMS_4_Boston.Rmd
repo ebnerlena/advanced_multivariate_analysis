@@ -52,8 +52,9 @@ So we need to reduce the default value for the dimension `k` of the B-spline bas
 * We fit jointly longitude and latitude by `te(lon,lat)` in order to capture the spatial effect.
 
 ```{r}
-full.gam <- gam(cmedv ~ te(lon,lat) + s(crim) + s(zn) + s(indus) + 
-                  chas + s(nox) + s(room) + s(age) + s(dis) + s(rad,k=5) +
+full.gam <- gam(cmedv ~ te(lon,lat) + s(crim) + s(zn) + 
+                  s(indus) + chas + s(nox) + s(room) + 
+                  s(age) + s(dis) + s(rad,k=5) +
                   s(tax) + s(ptratio) + s(lstat) + s(b),
                 data=boston.c)
 ```
@@ -66,7 +67,7 @@ Now we examine the fitted `gam` object numerically and graphically.
 summary(full.gam)
 ```
 
-According to `R-sq.(adj)` and `Deviance explained`, te quality of the fitted model is high. Nevertheless some refinements could be done:
+According to `R-sq.(adj)` and `Deviance explained`, the quality of the fitted model is high. Nevertheless some refinements could be done:
 
 1. Certain variables could be removed from the model because the corresponding `p-values` are large: 
 `age`, `chas`, `zn` and `b`.
@@ -99,87 +100,152 @@ The function `gam.check()` produces some diagnostic information about the fittin
 gam.check(full.gam)
 ```
 
-# A second refined gam model
+# A sequence of refined gam models
 
-Now we remove non-significant variables from the model (`age`, `chas`, `zn` and `b`) and change smoothed by linear terms for other variables 
-with `edf` very close to 1 (`rad` and `ptratio`).
+Now we remove non-significant variables from the model (`age`, `chas`, `zn` and `b`) one at a time, in decreasing order of p-values, until all variables are significant. 
 
 ```{r}
-gam2 <- gam(cmedv ~ te(lon,lat) + s(crim) + s(indus) + 
-                  s(nox) + s(room) + s(dis) + rad +
+gam2 <- gam(cmedv ~ te(lon,lat) + s(crim) + s(zn) + 
+                  s(indus) + chas + s(nox) + s(room) + 
+                  s(dis) + s(rad,k=5) +
+                  s(tax) + s(ptratio) + s(lstat) + s(b),
+                data=boston.c)
+summary(gam2)
+```
+
+
+```{r}
+gam3 <- gam(cmedv ~ te(lon,lat) + s(crim) + s(zn) + 
+                  s(indus) + s(nox) + s(room) + 
+                  s(dis) + s(rad,k=5) +
+                  s(tax) + s(ptratio) + s(lstat) + s(b),
+                data=boston.c)
+summary(gam3)
+```
+
+
+```{r}
+gam4 <- gam(cmedv ~ te(lon,lat) + s(crim) + 
+                  s(indus) + s(nox) + s(room) + 
+                  s(dis) + s(rad,k=5) +
+                  s(tax) + s(ptratio) + s(lstat) + s(b),
+                data=boston.c)
+summary(gam4)
+```
+
+
+```{r}
+gam5 <- gam(cmedv ~ te(lon,lat) + s(crim) + 
+                  s(indus) + s(nox) + s(room) + 
+                  s(dis) + s(rad,k=5) +
+                  s(tax) + s(ptratio) + s(lstat),
+                data=boston.c)
+summary(gam5)
+```
+
+Then we change smoothed by linear terms for other variables 
+with `edf` very close to 1 (`rad` and `ptratio`), in increasing order of edf's.
+
+
+There are two variables with edf equal to 1: `s(rad)` and `s(ptratio)`. First we change `s(rad)` to linear because it is closer to be non-significant.
+
+```{r}
+plot(gam5)
+```
+
+
+```{r}
+gam6 <- gam(cmedv ~ te(lon,lat) + s(crim) + 
+                  s(indus) + s(nox) + s(room) + 
+                  s(dis) + rad +
+                  s(tax) + s(ptratio) + s(lstat),
+                data=boston.c)
+summary(gam6)
+```
+
+
+```{r}
+gam7 <- gam(cmedv ~ te(lon,lat) + s(crim) + 
+                  s(indus) + s(nox) + s(room) + 
+                  s(dis) + rad +
                   s(tax) + ptratio + s(lstat),
                 data=boston.c)
-
-summary(gam2)
+summary(gam7)
 ```
 
 The values of `R-sq.(adj)` and `Deviance explained` are very similar to those of the full model:
 
 `R-sq.(adj) =  0.894   Deviance explained = 90.7%`
 
+Now all variables are significant and the smooth terms have edf's larger than 1. 
+
+We will check the last model to see if the smooth terms need larger number of knots. 
+
+
 ```{r}
-gam.check(gam2)
+gam.check(gam7)
 ```
-
-Now we test the null hypothesis that states the second model is correct again the alternative that states that the full model is better: 
-
-```{r}
-anova(gam2,full.gam,test="F")
-```
-
-We do not reject `gam2` against `full.gam` at significance level 0.05.
-
-Some graphics for better interpretation of the second fitted model:
+We increase parameter `k` for `te(lon,lat)`, `s(indus)`, `s(nox)`, `s(dis)`: 
 
 ```{r}
-plot(gam2, select = 1, residuals = TRUE, se=FALSE)
-plot(gam2, residuals = TRUE, shade=TRUE, seWithMean=TRUE, pages = 4)
-```
-
-```{r}
-vis.gam(gam2, view=c("lon","lat"), plot.type = "persp", theta=30, phi=30)
-vis.gam(gam2, view=c("lon","lat"), plot.type = "contour")
-```
-
-```{r}
-vis.gam(gam2, view=c("lstat","room"), plot.type = "persp", theta=30, phi=30)
-vis.gam(gam2, view=c("lstat","room"), plot.type = "contour")
-```
-
-# A third simpler model
-
-We remove several variables from the second model: `lon` and `lat` because the p-value of the term `s(lon, lat)`, and `indus`and `nox` because the plots of the corresponding smoothed terms (that are close to be constant).
-
-```{r}
-gam3 <- gam(cmedv ~ s(crim) + s(room) + s(dis) + rad +
+gam8 <- gam(cmedv ~ te(lon,lat, k=10) + s(crim) + 
+                  s(indus, k=20) + s(nox, k=20) + s(room) + 
+                  s(dis, k=20) + rad +
                   s(tax) + ptratio + s(lstat),
                 data=boston.c)
-
-summary(gam3)
+summary(gam8)
 ```
-
-The values of `R-sq.(adj)` and `Deviance explained` are very sensibly lower than those of model `gam2`.
+```{r}
+gam9 <- gam(cmedv ~ te(lon,lat, k=10) + s(crim) + 
+                  s(indus, k=20) + s(nox, k=20) + s(room) + 
+                  s(dis, k=20) + rad +
+                  tax + ptratio + s(lstat),
+                data=boston.c)
+summary(gam9)
+```
 
 ```{r}
-gam.check(gam3)
+gam.check(gam9)
 ```
-
-Now we test the null hypothesis that states the third model is correct again the alternative that states that the second model is better: 
 
 ```{r}
-anova(gam3,gam2,test="F")
+plot(gam9)
 ```
 
-We reject `gam3` against `gam2`.
+
+Now we test the null hypothesis that states the final model is correct again the alternative that states that the full model is better.
+
+In order to be able to test these hypotheses, we fit again the full model with the larger values of `k`. 
+
+```{r}
+full.gam.k <- gam(cmedv ~ te(lon,lat, k=10) + s(crim) + s(zn) + 
+                  s(indus, k=20) + chas + s(nox, k=20) + s(room) + 
+                  s(age) + s(dis, k=20) + s(rad,k=5) +
+                  s(tax) + s(ptratio) + s(lstat) + s(b),
+                data=boston.c)
+summary(full.gam.k)
+```
+
+```{r}
+anova(gam9,full.gam.k,test="F")
+```
+
+We do not reject `gam9` against `full.gam.k` at significance level 0.05.
 
 Some graphics for better interpretation of the second fitted model:
 
 ```{r}
-plot(gam3, residuals = TRUE, shade=TRUE, seWithMean=TRUE, pages = 3)
+plot(gam9, select = 1, residuals = TRUE, se=FALSE)
+plot(gam9, residuals = TRUE, shade=TRUE, seWithMean=TRUE, pages = 4)
 ```
 
 ```{r}
-vis.gam(gam3, view=c("lstat","room"), plot.type = "persp", theta=30, phi=30)
-vis.gam(gam3, view=c("lstat","room"), plot.type = "contour")
+vis.gam(gam9, view=c("lon","lat"), plot.type = "persp", theta=30, phi=30)
+vis.gam(gam9, view=c("lon","lat"), plot.type = "contour")
+```
+
+```{r}
+vis.gam(gam9, view=c("lstat","room"), plot.type = "persp", theta=30, phi=30)
+vis.gam(gam9, view=c("lstat","room"), plot.type = "contour")
 ```
 
