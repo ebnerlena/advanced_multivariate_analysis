@@ -271,7 +271,6 @@ model_rf_imp <- ranger(
   importance='impurity' # default = none, no importances will be computed
 )
 print(model_rf_imp)
-
 # ranger.importance -> survival = time to a specific event
 ```
 
@@ -380,6 +379,7 @@ Rel_Gh_Var <- relev.ghost.var(model=gam_bikes,
                               func.model.ghost.var = lm
 )
 plot.relev.ghost.var(Rel_Gh_Var,n1=500,ncols.plot = 3)
+# year and temp are the most relevant variables
 ```
 
 ```{r,fig.width=8,fig.height=6}
@@ -398,6 +398,11 @@ explainer_rf <- explain.default(model = model_rf_imp,
                                data = day_sel_test[, -c(1,7,8)],
                                y = day_sel_test$cnt, 
                                label = "Random Forest")
+
+# first thing we do in dalex is creating a interface for all different explanation methods to fitted model  = explainer
+# with this explainer created you can use everything in Dalex
+# it is the intermediate step needed to use the fitted model in dalex
+# the explainer must be able to extract the function used for predictions
 ``` 
 
 ## Random Permutations Variable Importance
@@ -510,7 +515,7 @@ aux <- which(day[I.train,2]=="2012-10-05")
 ```{r}
 bd_rf <- predict_parts(explainer = explainer_rf,
                  new_observation = october_4_2011,
-                            type = "shap")
+                            type = "shap") # based on shapely value
 
 bd_rf
 plot(bd_rf)
@@ -518,11 +523,12 @@ plot(bd_rf)
 
 ```{r}
 bd_rf <- predict_parts(explainer = explainer_rf,
-                 new_observation = october_4_2012,
+                 new_observation = october_4_2012, # next year
                             type = "shap")
 
 bd_rf
 plot(bd_rf)
+# all variables have a positive contribution to prediction compared to average prediction
 ```
 
 ## Break-down plots
@@ -530,10 +536,14 @@ plot(bd_rf)
 ```{r}
 bd_rf <- predict_parts(explainer = explainer_rf,
                  new_observation = october_4_2011,
-                            type = "break_down")
+                            type = "break_down") # using break down plots
 
 bd_rf
 plot(bd_rf, max_features=11)
+
+# intercept = the average of all predictions = 4459.909
+# prediction (bar) = difference: sum of difference of all variable is the distance
+# = distribute distance among all predictor variables
 ```
 
 ```{r}
@@ -543,6 +553,10 @@ bd_rf <- predict_parts(explainer = explainer_rf,
 
 bd_rf
 plot(bd_rf, max_features=11)
+
+# distance is positive and very large
+# prediction = distance between average prediction and actual prediction
+# we distribute the distance between all predictor vars
 ```
 
 
@@ -605,5 +619,8 @@ mp_rf <- model_profile(explainer = explainer_rf,
 )
 
 plot(mp_rf, geom = "profiles") +  
-  ggtitle("Ceteris-paribus and partial-dependence profiles for temp") 
+  ggtitle("Ceteris-paribus and partial-dependence profiles for temp")
+
+# grey = all individual expectation plots
+# blue = average
 ```
