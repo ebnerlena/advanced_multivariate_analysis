@@ -1,0 +1,609 @@
+---
+title: "Interpretability and Explainability in Machine Learning"
+author: "Group 1: Pariente Antonio, Bosch Guillem, Ebner Lena"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document: default
+  pdf_document:
+    latex_engine: xelatex
+editor_options:
+  markdown:
+    wrap: sentence
+---
+
+# Concrete Dataset
+
+UC Irvine Machine Learning Repository, Concrete Dataset.
+
+**Abstract:** Concrete is the most important material in civil engineering.
+The concrete compressive strength is a highly nonlinear function of age and ingredients.
+These ingredients include cement, blast furnace slag, fly ash, water, superplasticizer, coarse aggregate, and fine aggregate.
+
+**Data Characteristics**: The actual concrete compressive strength (MPa) for a given mixture under a specific age (concretes) was determined from laboratory.
+Data is in raw form (not scaled).
+
+**Summary Statistics**:
+
+- Number of instances (observations): 1030
+- Number of Attributes: 9
+- Attribute breakdown: 8 quantitative input variables, and 1 quantitative output variable
+- Missing Attribute Values: None
+
+---
+
+**Variable Information**: Given is the variable name, variable type, the measurement unit and a brief description.
+
+_Input Variables_:
+
+- Cement (component 1) -- quantitative -- kg in a m3 mixture
+
+- Blast Furnace Slag (component 2) -- quantitative -- kg in a m3 mixture
+
+- Fly Ash (component 3) -- quantitative -- kg in a m3 mixture
+
+- Water (component 4) -- quantitative -- kg in a m3 mixture
+
+- Superplasticizer (component 5) -- quantitative -- kg in a m3 mixture
+
+- Coarse Aggregate (component 6) -- quantitative -- kg in a m3 mixture
+
+- Fine Aggregate (component 7) -- quantitative -- kg in a m3 mixture
+
+- Age -- quantitative -- concrete (1\~365)
+
+_Response variable_: - Concrete compressive strength -- quantitative -- MPa -- Output Variable
+
+```{r}
+library(readxl)
+
+concrete <- as.data.frame(read_excel("Concrete_Data.xls"))
+DescVars <- names(concrete)
+names(concrete) <- c("Cement","Slag","FlyAsh","Water","Superplast", "CoarseAggr","FineAggr","Age","Strength")
+```
+
+**Data processing: Creating training and test sets**
+
+Create a training sample choosing 700 data at random.
+The non-chosen data will be the test set.
+
+```{r}
+set.seed(123)
+
+training_indices <- sort(sample(1:nrow(concrete), 700))
+concrete_train <- concrete[training_indices, ]
+
+concrete_test <- concrete[-training_indices, ]
+
+dim(concrete_train)
+dim(concrete_test)
+```
+
+## 1. Fit a Random Forest
+
+a. Compute the Variable Importance by the reduction of the **impurity** at the splits defined by each variable.
+b. Compute the Variable Importance by out-of-bag random permutations.
+c. Do a graphical representation of both Variable Importance measures.
+d. Compute the Variable Importance of each variable by Shapley Values.
+
+```{r}
+library(ranger)
+library(randomForest)
+library(caret)
+library(vip)
+library(DALEX)
+library(DALEXtra)
+library(lime)
+library(iml)
+library(localModel)
+library(fastshap) # Attention! It re-define "explain" from DALEX
+# if (require(ghostvar)){library(ghostvar)}
+library(mgcv)
+library(gridExtra)
+```
+
+### a. Variable Importance by reduction of the impurity at splits
+
+```{r}
+model_rf_imp <- ranger(
+  Strength ~ .,
+  data = concrete_train,
+  importance='impurity'
+)
+print(model_rf_imp)
+```
+
+### b. Variable Importance by out-of-bag random permutations
+
+```{r}
+model_rf_perm <- ranger(
+  Strength ~ .,
+  data = concrete_train,
+  importance='permutation'
+)
+print(model_rf_perm)
+```
+
+### c. Graphical Representation of Variable Importances
+
+```{r}
+rf_imp_vip <- vip(model_rf_imp, num_features = 8)
+rf_perm_vip <- vip(model_rf_perm, num_features = 8)
+grid.arrange(rf_imp_vip, rf_perm_vip, ncol=2, top="Left: Reduction in impurity at splits. Right: Out-of-bag permutations")
+```
+
+### d. Variable Importance by Shapley Values
+
+```{r}
+rf_imp_vip <- vip(model_rf_imp, num_features = 8)
+rf_perm_vip <- vip(model_rf_perm, num_features = 8)
+
+rf_shapley <- vip(model_rf_imp, method="shap",
+                  pred_wrapper=yhat, num_features = 8,
+                  train = concrete_train,
+                  newdata=concrete_test[,-9]) # excluding the 9th column as this is the Strength column
+
+grid.arrange(rf_imp_vip, rf_perm_vip, rf_shapley,
+             ncol=2, nrow=2,
+             top="Top left: Impurity. Top Right: OOB Permutations. Bottom left: Shapley Values"
+            )
+```
+
+By looking at the plot we can see that all 3 ways of computing variable importance give similar results. We can see that the most important variables are, in order, Age, Cement and Water. Differences in the order of the importance of variables do not appear until the fifth position. None of the three orders are the same but the differences in the order of the predictors are mild.
+
+## 2. Fit a linear model and a gam model.
+
+a. Summarize, numerically and graphically, the fitted models.
+b. Compute the Variable Importance by Shapley values in the linear and gam fitted models. Compare your results with what you have learned before.
+
+### a. Linear Model
+
+```{r}
+lm_concrete <- lm(Strength ~ ., data = concrete_train)
+(summ_lm_concrete <- summary(lm_concrete))
+```
+
+```{r}
+plot(lm_concrete)
+```
+
+### a. GAM Model
+
+```{r}
+gam_concrete <- gam(Strength ~ s(Cement) + s(Slag) + s(FlyAsh) + s(Water) + s(Superplast) + s(CoarseAggr) + s(FineAggr) + s(Age), data = concrete_train)
+(summary_gam_concrete <- summary(gam_concrete))
+```
+
+```{r}
+plot(gam_concrete)
+```
+
+The linear model is able to explain 62% of the variability in the data, the GAM model achieves 89.9%.
+
+A difference between the two models is that the GAM model also considers the Water as significant parameter for predicting the Strength, due to the effect of this variable to the Strength of concrete is highly non-linear. The same phenomenon is present with FineAggr. The best linear approximation is a constant but if non-linear dependence is allowed, better predictors appear.
+
+### b. Variable Importance by Shapley Comparision
+
+Linear Model
+
+```{r}
+lm_concrete_shapley <- vip(lm_concrete, method="shap",
+                  pred_wrapper=predict.lm,
+                  train=concrete_train,
+                  newdata=concrete_test,
+                  num_features = 8,
+                  exact=TRUE)
+plot(lm_concrete_shapley)
+
+```
+
+<!--```{r}
+lm_concrete2 <- lm(Strength ~ ., data = as.data.frame(scale(concrete_train)))
+barplot(sort(abs(coef(lm_concrete2))), horiz=T, las=1)
+```-->
+
+GAM Model
+
+```{r}
+gam_concrete_shapley <- vip(gam_concrete, method="shap",
+                  pred_wrapper=predict.gam,
+                  train=concrete_train,
+                  newdata=concrete_test,
+                  num_features = 8,
+                  exact=TRUE)
+
+plot(gam_concrete_shapley)
+```
+
+```{r}
+grid.arrange(rf_imp_vip, rf_perm_vip, rf_shapley,
+             lm_concrete_shapley, gam_concrete_shapley,
+             ncol=2, nrow=3,
+             top="1,1: RF Impurity. 1,2: OOB Permutations, 2,1: Shapley RF. 2,2: Shapley LM 3,1: Shapley GAM"
+)
+```
+
+Comparing the variable importance from the Linear and GAM models to the previously obtained results, we can see some differences.
+Compared to the random forest models, in the LM and GAM model Cement is the most important variable.
+In the linear model, Slag is way more important and ranked as 2nd most important variable, far away from the fifth or sixth position in the RF.
+The GAM models also ranks the Slag variable higher (in third Position) than in the random forest models. Superplast does not seem as important as in random forest models.
+Also the variable FlyAsh seems more important in the LM and GAM model than in the RF models.
+
+We attribute these differences to non-smooth changes of the Strength with respect to the predictors; those changes are better modeled with random forests, so variables with such changes will appear important in one model but non-important in the linear models or GAMs.
+
+## 3. Relevance by Ghost Variables
+
+Compute the relevance by ghost variables in the three fitted models.
+
+### Ghost Variables of RF Model
+
+```{r,fig.width=8,fig.height=12}
+library(grid)
+source("relev.ghost.var.R")
+
+rf_model <- randomForest(Strength ~ ., data = concrete_train)
+
+Rel_Gh_Var_Rf <- relev.ghost.var(model=rf_model,
+                              newdata = concrete_test[,-9],
+                              y.ts = concrete_test[,9],
+                              func.model.ghost.var=gam
+)
+plot.relev.ghost.var(Rel_Gh_Var_Rf,n1=500,ncols.plot = 3)
+```
+
+```{r,fig.width=8,fig.height=6}
+aux <- cbind(Rel_Gh_Var_Rf$relev.ghost,rf_shapley$data$Importance)
+plot(aux[,1],aux[,2],col=0,xlab="Relev. by Ghost Variables",ylab="Shapley Var. Imp.")
+text(aux[,1],aux[,2],row.names(aux))
+```
+
+### Ghost Variables of GAM Model
+
+```{r,fig.width=8,fig.height=12}
+Rel_Gh_Var_Gam <- relev.ghost.var(model=gam_concrete,
+                              newdata = concrete_test[,-9],
+                              y.ts = concrete_test[,9],
+                              func.model.ghost.var=gam
+)
+plot.relev.ghost.var(Rel_Gh_Var_Gam,n1=500,ncols.plot = 3)
+```
+
+```{r,fig.width=8,fig.height=6}
+aux <- cbind(Rel_Gh_Var_Gam$relev.ghost,gam_concrete_shapley$data$Importance)
+plot(aux[,1],aux[,2],col=0,xlab="Relev. by Ghost Variables",ylab="Shapley Var. Imp.")
+text(aux[,1],aux[,2],row.names(aux))
+```
+
+### Ghost Variables of LM Model
+
+```{r,fig.width=8,fig.height=12}
+Rel_Gh_Var_Lm <- relev.ghost.var(model=lm_concrete,
+                              newdata = concrete_test[,-9],
+                              y.ts = concrete_test[,9],
+                              func.model.ghost.var = lm
+)
+plot.relev.ghost.var(Rel_Gh_Var_Lm,n1=500,ncols.plot = 3)
+```
+
+```{r,fig.width=8,fig.height=6}
+aux <- cbind(Rel_Gh_Var_Lm$relev.ghost,lm_concrete_shapley$data$Importance)
+plot(aux[,1],aux[,2],col=0,xlab="Relev. by Ghost Variables",ylab="Shapley Var. Imp.")
+text(aux[,1],aux[,2],row.names(aux))
+```
+
+In all three models Cement, Slag and FlyAsh are identified as important variables by the Shapley values method but not important by the Ghost variable method. Instead Age is the most important value by far in the ghost variable method axis.
+
+In the three models the first eigenvector of the results of the ghost variable method corresponds exactly to the Age variable and explains a high fraction of the total variability. The variables Cement, Slag and FlyAsh appear relevant in less important eigenvectors.
+
+The linear model is the model in which the variables Cement, Slag and FlyAsh appear to be more relevant in the ghost variable axis too. These variables are also part of the second eigenvector, with around 30% of explained variance, higher than in the other methods.
+
+We attribute the fact that the variable Age appears to be important only by the ghost variable method to the fact that this variable cannot be well predicted by the other variables. This makes sense with the definition of the variable because Age is something independent to physical composition of the material.
+
+## 4. Global Importance Measures and Plots using the library DALEX
+
+a. Compute Variable Importance by Random Permutations
+b. Do the Partial Dependence Plot for each explanatory variable.
+c. Do the Local (or Conditional) Dependence Plot for each explanatory variable.
+
+### a. Variable Importance by Random Permutations
+
+Random forest
+
+```{r, warning=FALSE}
+explainer_rf <- DALEX::explain.default(model = model_rf_imp,
+                               data = concrete_test[, -9],
+                               y = concrete_test[, 9],
+                               label = "Random Forest")
+Rnd_Perm_rf <- model_parts(
+  explainer_rf,
+  N = NULL, # All available data are used
+  B = 100   # number of permutations to be used, with B = 10 used by default
+)
+
+Rnd_Perm_rf
+```
+
+```{r}
+plot(Rnd_Perm_rf)
+```
+
+Linear model
+
+```{r, warning=FALSE}
+explainer_lm <- DALEX::explain.default(model = lm_concrete,
+                               data = concrete_test[, -9],
+                               y = concrete_test[, 9],
+                               label = "Linear Model")
+Rnd_Perm_lm <- model_parts(
+  explainer_lm,
+  N = NULL, # All available data are used
+  B = 100   # number of permutations to be used, with B = 10 used by default
+)
+
+Rnd_Perm_lm
+```
+
+```{r}
+plot(Rnd_Perm_lm)
+```
+
+GAM model
+
+```{r, warning=FALSE}
+explainer_gam <- DALEX::explain.default(model = gam_concrete,
+                               data = concrete_test[, -9],
+                               y = concrete_test[, 9],
+                               label = "GAM Model")
+Rnd_Perm_gam <- model_parts(
+  explainer_gam,
+  N = NULL, # All available data are used
+  B = 100   # number of permutations to be used, with B = 10 used by default
+)
+
+Rnd_Perm_gam
+```
+
+```{r}
+plot(Rnd_Perm_gam)
+```
+
+In the Random forest the importances obtained are similar to the ones obtained initially by OOB permutations, but the numbers are not actually the same. In contrast to the ghost variable method, the importance is more equally distributed among all explanatory variables.
+
+In the linear model the order of the variables by importance is different but the differences are not too severe. The values for the importance are completely different.
+
+In the GAM the order of the variables is exactly the same and the barplots seem to be very similar.
+
+### b. Partial Dependence Plots for each explanatory variable
+
+Random Forest
+
+```{r, warning=FALSE}
+PDP_rf <- model_profile(
+  explainer=explainer_rf,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "partial" #  partial, conditional or accumulated
+)
+
+plot(PDP_rf, facet_ncol=2)
+```
+
+Linear model
+
+```{r, warning=FALSE}
+PDP_lm <- model_profile(
+  explainer=explainer_lm,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "partial" #  partial, conditional or accumulated
+)
+
+plot(PDP_lm, facet_ncol=2)
+```
+
+GAM model
+
+```{r, warning=FALSE}
+PDP_gam <- model_profile(
+  explainer=explainer_gam,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "partial" #  partial, conditional or accumulated
+)
+
+plot(PDP_gam, facet_ncol=2)
+```
+
+### c. Local (or Conditional) Dependence Plots for each explanatory variable
+
+Random Forest
+
+```{r, warnings=FALSE}
+
+CDP_rf <- model_profile(
+  explainer=explainer_rf,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "conditional" #  partial, conditional or accumulated
+)
+
+plot(CDP_rf, facet_ncol=2)
+```
+
+Linear Model
+
+```{r, warnings=FALSE}
+
+CDP_lm <- model_profile(
+  explainer=explainer_lm,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "conditional" #  partial, conditional or accumulated
+)
+
+plot(CDP_lm, facet_ncol=2)
+```
+
+GAM model
+
+```{r, warnings=FALSE}
+
+CDP_gam <- model_profile(
+  explainer=explainer_gam,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "conditional" #  partial, conditional or accumulated
+)
+
+plot(CDP_gam, facet_ncol=2)
+```
+
+## 5. Local explainers with library DALEX
+
+Choose two instances in the the test set, the prediction for which we want to explain:
+
+- The data with the lowest value in Strength.
+- The data with the largest value in Strength.
+
+For these two instances, do the following tasks for the fitted random forest.
+
+a. Explain the predictions using SHAP.
+
+b. Explain the predictions using Break-down plots.
+
+c. Explain the predictions using LIME.
+
+d. Do the Individual conditional expectation (ICE) plot, or ceteris paribus plot
+
+e. Plot in one graphic the Individual conditional expectation (ICE) plot for variable **Age** for each case in the test sample. Add the global Partial Dependence Plot.
+
+```{r, warnings=FALSE}
+instance1 <- concrete_test[which.min(concrete_test$Strength),]
+instance2 <- concrete_test[which.max(concrete_test$Strength),]
+```
+
+### a. Explain the predictions using SHAP
+
+```{r, warnings=FALSE}
+bd1_rf_shap <- predict_parts(explainer = explainer_rf,
+                 new_observation = instance1,
+                            type = "shap")
+bd2_rf_shap <- predict_parts(explainer = explainer_rf,
+                 new_observation = instance2,
+                            type = "shap")
+
+bd1_rf_shap
+```
+
+```{r, warnings=FALSE}
+plot(bd1_rf_shap)
+```
+
+```{r, warnings=FALSE}
+bd2_rf_shap
+```
+
+```{r, warnings=FALSE}
+plot(bd2_rf_shap)
+```
+
+### b. Explain the predictions using Break-down plots
+
+```{r, warnings=FALSE}
+bd1_rf_bd <- predict_parts(explainer = explainer_rf,
+                 new_observation = instance1,
+                            type = "break_down")
+bd2_rf_bd <- predict_parts(explainer = explainer_rf,
+                 new_observation = instance2,
+                            type = "break_down")
+
+bd1_rf_bd
+```
+
+```{r, warnings=FALSE}
+plot(bd1_rf_bd)
+```
+
+```{r, warnings=FALSE}
+bd2_rf_bd
+```
+
+```{r, warnings=FALSE}
+plot(bd2_rf_bd)
+```
+
+### c. Explain the predictions using LIME
+
+```{r, warnings=FALSE}
+lime1_rf <- predict_surrogate(explainer = explainer_rf,
+                  new_observation = instance1[,-9],
+                  type = "localModel")
+lime2_rf <- predict_surrogate(explainer = explainer_rf,
+                  new_observation = instance2[,-9],
+                  type = "localModel")
+
+
+lime1_rf
+```
+
+```{r, warnings=FALSE}
+plot(lime1_rf)
+```
+
+```{r, warnings=FALSE}
+lime2_rf
+```
+
+```{r, warnings=FALSE}
+plot(lime2_rf)
+```
+
+### d. Individual conditional expectation (ICE) plot, or ceteris paribus plot
+
+```{r, warnings=FALSE}
+cp1_rf <- predict_profile(explainer = explainer_rf,
+                           new_observation = instance1)
+cp2_rf <- predict_profile(explainer = explainer_rf,
+                           new_observation = instance2)
+cp1_rf
+```
+
+```{r, warnings=FALSE}
+plot(cp1_rf, facet_ncol=2)
+```
+
+```{r, warnings=FALSE}
+cp2_rf
+```
+
+```{r, warnings=FALSE}
+plot(cp2_rf, facet_ncol=2)
+```
+
+```{r, warnings=FALSE}
+mp_rf <- model_profile(explainer = explainer_rf,
+  variables = "Age",
+  N = NULL,
+  type = "partial"
+)
+
+plot(mp_rf, geom = "profiles") +
+  ggtitle("Ceteris-paribus and partial-dependence profiles for Age")
+```

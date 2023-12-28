@@ -1,0 +1,280 @@
+---
+title: "GAM fits for hirsutism data"
+author: "Group 1: Pariente Antonio, Bosch Guillem, Ebner Lena"
+date: "`r format(Sys.time(), '%d/%m/%Y')`"
+output:
+  html_document: default
+  pdf_document:
+    latex_engine: xelatex
+editor_options:
+  markdown:
+    wrap: sentence
+---
+
+# Hirsutism dataset
+
+`Hirsutism` is the excessive hairiness on women in those parts of the body where terminal hair does not normally occur or is minimal -for example, a beard or chest hair.
+It refers to a male pattern of body hair (androgenic hair) and it is therefore primarily of cosmetic and psychological concern.
+Hirsutism is a symptom rather than a disease and may be a sign of a more serious medical condition, especially if it develops well after puberty.
+
+The amount and location of the hair is measured by a Ferriman-Gallwey score.
+The original method used 11 body areas to assess hair growth, but was decreased to 9 body areas in the modified method: Upper lip, Chin, Chest, Upper back, Lower back, Upper abdomen, Lower abdomen, Upper arms, Thighs, Forearms (deleted in the modified method) and Legs (deleted in the modified method).
+In the modified method, hair growth is rated from 0 (no growth of terminal hair) to 4 (extensive hair growth) in each of the nine locations.
+A patient's score may therefore range from a minimum score of 0 to a maximum score of 36.
+
+A clinical trial was conducted to evaluate the effectiveness of an antiandrogen combined with an oral contraceptive in reducing hirsutism for 12 consecutive months.
+It is known that contraceptives have positive effects on reduction of hirsutism.
+The degree of hirsutism is measured by the modified Ferriman-Gallwey scale.
+Patients were randomized into 4 treatment levels: levels 0 (only contraceptive), 1, 2, and 3 of the antiandrogen in the study (always in combination with the contraceptive).
+The clinical trial was double-blind.
+
+The data set `hirsutism.dat` contains artificial values of measures corresponding to some patients in this study.
+The variables are the following:
+
+-   `Treatment`, with values 0, 1, 2 or 3.
+-   `FGm0`, it indicates the baseline hirsutism level at the randomization moment (the beginning of the clinical trial). Only women with baseline FG values grater than 15 where recruited.
+-   `FGm3`, FG value at 3 months.
+-   `FGm6`, FG value at 6 months
+-   `FGm12`, FG value at 12 months, the end of the trial.
+-   `SysPres`, baseline systolic blood pressure.
+-   `DiaPres`, baseline diastolic blood pressure.
+-   `weight`, baseline weight.
+-   `height`, baseline height.
+
+(Note: The term "baseline" means that these variables were measured at the beginning of the clinical trial).
+
+------------------------------------------------------------------------
+
+# GAMs for hirsutism data
+
+Fit several GAM models (including semiparametric models) explaining `FGm12` as a function of the variables that were measured at the beginning of the clinical trial (including `FGm0`, but NOT `FGm3` or `FGm6`) and `Treatment` (treated as factor, which can by used as value of parameter `by` in function `s()`).
+Use functions `summary`, `plot`, `vis.gam` and `gam.check` to get an insight into the fitted models.
+Then use function `anova` to select among them the model (or models) that you think is (are) the most appropriate.
+
+## Load Data
+
+```{r}
+# load data
+hirs <- read.table("hirsutism.dat",header=T, sep="\t",fill=TRUE)
+hirs$Treatment = as.factor(hirs$Treatment)
+summary(hirs)
+attach(hirs)
+
+boxplot(hirs[,2:5])
+
+par(mfrow=c(2,2))
+boxplot(hirs[,2]~Treatment,ylim=c(0,30), main=names(hirs)[2], xlab="Treatment")
+boxplot(hirs[,3]~Treatment,ylim=c(0,30), main=names(hirs)[3], xlab="Treatment")
+boxplot(hirs[,4]~Treatment,ylim=c(0,30), main=names(hirs)[4], xlab="Treatment")
+boxplot(hirs[,5]~Treatment,ylim=c(0,30), main=names(hirs)[5], xlab="Treatment")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+boxplot(hirs[Treatment==0,2:5],ylim=c(0,30), main="Treatment 0")
+boxplot(hirs[Treatment==1,2:5],ylim=c(0,30), main="Treatment 1")
+boxplot(hirs[Treatment==2,2:5],ylim=c(0,30), main="Treatment 2")
+boxplot(hirs[Treatment==3,2:5],ylim=c(0,30), main="Treatment 3")
+par(mfrow=c(1,1))
+
+plot(hirs[,c(-1,-3,-4)])
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(mgcv)
+```
+
+## Model 1.0
+
+First we fit an additive model with Gaussian family using all the variables measured at the beginning of the clinical trial, smoothed 
+
+```{r}
+gam1.0 <- gam(FGm12 ~ FGm0 + Treatment+s(weight, by=Treatment) + s(height, by=Treatment)+
+                s(SysPres, by=Treatment) + s(DiaPres, by=Treatment), data=hirs)
+summary(gam1.0)
+```
+
+
+```{r}
+plot(gam1.0,pages=4, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+```{r, warning=FALSE}
+vis.gam(gam1.0,view=c("FGm0","weight"),
+        theta = 60, phi = 25, r = sqrt(3), d = 1,)
+
+vis.gam(gam1.0,view=c("FGm0","height"),
+        theta = 60, phi = 10, r = sqrt(3), d = 1,)
+
+vis.gam(gam1.0,view=c("FGm0","SysPres"),
+        theta = 60, phi = 25, r = sqrt(3), d = 1,)
+
+vis.gam(gam1.0,view=c("FGm0","DiaPres"),
+        theta = 60, phi = 10, r = sqrt(3), d = 1,)
+
+op <- par(mfrow=c(1,2))
+vis.gam(gam1.0, view=c("FGm0","weight"), plot.type = "contour")
+vis.gam(gam1.0, view=c("FGm0","height"), plot.type = "contour")
+par(op)
+op <- par(mfrow=c(1,2))
+vis.gam(gam1.0, view=c("FGm0","SysPres"), plot.type = "contour")
+vis.gam(gam1.0, view=c("FGm0","DiaPres"), plot.type = "contour")
+par(op)
+```
+
+```{r}
+gam.check(gam1.0)
+```
+We see that for SysPres all edfs are close to 1 which means that the smoothing is non-significant. The same happens with weight so we will consider a model with those variables with no smoothing. The fact that the smoothing does nothing can be seen in the following plots. 
+
+Regarding performance, we could expect the model to behave much better. We will try to improve it by gradually adding complexity.
+
+We see that the residuals are not normally distributed, the distribution is not symmetrical. However, their behavior is not alarming when compared with the theoretical normal quantiles.
+
+## Model 2.0
+
+The second model we propose is to model weight and height; and the pressures as tensor products.By adding this complexity we could expect an increase of the model performance.
+
+```{r}
+gam2.0 <- gam(FGm12 ~ FGm0 + te(height, weight, by=Treatment)+te(DiaPres, SysPres, by=Treatment), data=hirs)
+summary(gam2.0)
+```
+```{r}
+par(mfrow=c(4,2))
+plot(gam2.0,pages=2, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+```{r}
+vis.gam(gam2.0,view=c("FGm0","weight"),
+        theta = 40, phi = 35, r = sqrt(4), d = 1,)
+
+vis.gam(gam2.0, view=c("FGm0","weight"), plot.type = "contour")
+```
+
+```{r}
+gam.check(gam2.0)
+```
+
+The behavior in residuals distribution is still asymmetrical, but random enough to justify the fit, as it can be seen in the second image of the model check.
+
+The model performance has also noticeably increased, now to a 91% of variance explained. In addition, the number of significant p-values in variables has also been increased. When considering 0.1 of significance, all variables present relevant behavior in the model.
+
+## Model 3.0
+
+The third model is treating weight and height as a tensor product but keeping the pressures independently smoothed and vice versa.
+
+```{r}
+gam3.0 <- gam(FGm12 ~ FGm0 + te(weight, height, by=Treatment) +
+                s(SysPres, by=Treatment) + s(DiaPres, by=Treatment), data=hirs)
+summary(gam3.0)
+
+```
+
+
+
+```{r}
+par(mfrow=c(4,2))
+plot(gam3.0,pages=3, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+```{r}
+vis.gam(gam3.0,view=c("FGm0","weight"),
+        theta = 40, phi = 35, r = sqrt(4), d = 1,)
+
+vis.gam(gam3.0, view=c("weight","height"), plot.type = "contour")
+
+vis.gam(gam3.0, view=c("DiaPres","SysPres"), plot.type = "contour")
+
+```
+
+```{r}
+gam.check(gam3.0)
+```
+This is the best model so far. With a 94% of variance explained and 0.84 R adjusted coefficient it seems to be a satisfactory use of gams models, which rely on their simplification to deal with the curse of dimensionality.
+
+When looking at the distributions of residuals, altogether they do not align with the theoretical quantiles, this is due to their high concentration around 0. This fact is however not alarming since, when looking at the distribution it seems to be no distinguishable pattern in the residuals. This model seems to perform satisfactory when explaining the data.
+
+## Model 4.0
+
+As a counterpart the fourth model is treating pressures as a tensor product but keeping weight and height independently smoothed.
+
+```{r}
+gam4.0 <- gam(FGm12 ~ FGm0 + s(weight, by=Treatment) + s(height, by=Treatment) +
+                te(SysPres, DiaPres, by=Treatment), data=hirs)
+summary(gam4.0)
+
+```
+
+```{r}
+par(mfrow=c(4,2))
+plot(gam4.0,pages=3, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+```{r}
+vis.gam(gam4.0,view=c("FGm0","weight"),
+        theta = 40, phi = 35, r = sqrt(4), d = 1,)
+
+vis.gam(gam4.0, view=c("weight","height"), plot.type = "contour")
+vis.gam(gam4.0, view=c("DiaPres","SysPres"), plot.type = "contour")
+```
+
+```{r}
+gam.check(gam4.0)
+```
+
+This model is behaving in an unexpected way. By giving a 100% of variance explanation and and an adjusted R coefficient of 1 we should expect overfitting. When looking at the check exposed before, it can be clearly seen that the residuals scale is outstanding by its order of magnitude. When we should expect some noise in these residuals, they behave almost constant near zero which is a sign of almost interpolation.
+
+## Anova Model Selection
+
+For the selection of models, different ANOVA analysis will be performed. Since the predicted variable is continuous, the test chosen through this section will be the F-test. The ANOVA test is perfectly suited for this ocasion in which the models are one contained by the other.
+
+```{r}
+anova(gam1.0, gam2.0, test="F")
+```
+
+```{r}
+anova(gam1.0, gam3.0, test="F")
+```
+
+```{r}
+anova(gam1.0, gam4.0, test="F")
+```
+When compared with the first model (baseline) all of the additive models seem to add significant variance difference except for the fourth of them. This, together with the extreme behavior of the residuals, is a good sign for it to be discarded.
+
+```{r}
+anova(gam2.0, gam3.0, test="F")
+```
+Our two preferred models so far, are still different regarding ANOVA analysis, which is a good sign when deciding for a final one.
+
+```{r}
+anova(gam1.0, gam2.0, gam3.0, gam4.0, test="F")
+```
+```{r}
+anova(gam1.0, gam2.0, gam3.0, test="F")
+```
+If the model 4 is included in the ANOVA analysis, the results still present a strange behavior. When it is subtracted, we can see that the results do coincide with the ones obtained so far. By taking these results into account together with the variance explanation and adjusted R coefficient of each model, our final selection will be the model3.
+
+## Model 3: Explanation
+
+```{r}
+par(mfrow=c(2,2))
+plot(gam3.0,pages=3, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+In the below representation of the model, it can be detected a clear relation between weight-height distribution and hirsutism. When high weights are distributed in less height (a sign that may correspond to overweight symptoms), a clear tendency to higher hirsutism values appears. This makes sense according to actual clinic researchments stating that obesity states can cause " __changes in the pattern of secretion or metabolism__ *. On the contrary, hirsutism levels are lower when height and weight are more similarly distributed.
+```{r}
+vis.gam(gam3.0, view=c("height","weight"), plot.type = "persp", theta=30, phi=30)
+```
+The below graphic representation presents an evident tendency for hirsutism regarding pressure variables. Systolis can Diastolic pressure do increase the levels of hirsutism, however, this relation is more complex than a simple linear increasment. It seems to present rapid increments, followed by little recess. It also can be observed that Diastolic pressure presents an stronger relation with hirsutism, since the slope of increase is more pronounced.
+
+```{r}
+vis.gam(gam3.0, view=c("SysPres","DiaPres"), plot.type = "persp", theta=30, phi=30)
+```
+The relations between Diastolic pressure and height or weight present a behavior similar to the one described above, making it clear that this variable is relevant when considering hirsutism levels.
+
+```{r}
+par(mfrow=c(1,2))
+vis.gam(gam3.0, view=c("height","DiaPres"), plot.type = "persp", theta=30, phi=30)
+vis.gam(gam3.0, view=c("weight","DiaPres"), plot.type = "persp", theta=30, phi=30)
+```
+
