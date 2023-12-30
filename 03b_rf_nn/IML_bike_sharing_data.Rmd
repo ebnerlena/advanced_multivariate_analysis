@@ -187,10 +187,10 @@ legend("topleft",c("Year 2011", "Year 2012"),col=c(1,2),pch=19)
 # [13] "weather.med" "weather.bad" "temp"        "atemp"      
 # [17] "hum"         "windspeed"   "log.casual"  "log.cnt"
 
-day_selected <- bikes2[,c(4:15,17,18)]
+day_selected <- bikes2[,c(4:15,17,18)] # select columns 4-14 and 17 and 18
 head(day_selected)
 
-I.train <- sort( sample(1:dim(day_selected)[1],500,replace=FALSE) )
+I.train <- sort( sample(1:dim(day_selected)[1],500,replace=FALSE) ) # vector of 500 randomly sampled indices from the row indices of day_selected sorted in ascending order
 day_sel_train <- day_selected[I.train,]
 day_sel_test <- day_selected[-I.train,]
 ```
@@ -254,7 +254,7 @@ text(wminQ[var.split],(min(Q0)+Qsplits[var.split])/2,
      names(day_sel_train)[var.split+1],col=var.split,pos=4)
 
 # every curve corresponds to one explanatory variable
-# x axis is every possible possible value of splits
+# x axis is every possible value of splits
 # best cut s for month would be o.25 (cyan)
 # 
 ```
@@ -305,7 +305,7 @@ rf_perm_vip <- vip(model_rf_perm, num_features = 11)
 rf_shapley <- vip(model_rf_imp, method="shap",
                   pred_wrapper=yhat, num_features = 11,
                   train = day_sel_train, # argument 'train' must be provided
-                  newdata=day_sel_test[,-c(1,7,8)]) 
+                  newdata=day_sel_test[,-c(1,7,8)]) # exclude columns 1, 7, 8 
 grid.arrange(rf_imp_vip, rf_perm_vip, rf_shapley,
              ncol=2, nrow=2,
              top="Top left: Impurity. Top right: oob permutations. Bottom left: Shapley values"
@@ -506,7 +506,7 @@ We choose an instance in of 2011, and another one in 2012, the prediction for wh
 aux <- which(day[-I.train,2]=="2011-10-04")
 (october_4_2011 <- day_sel_test[aux,])
 
-aux <- which(day[I.train,2]=="2012-10-05")
+aux <- which(day[-I.train,2]=="2012-10-04")
 (october_4_2012 <- day_sel_train[aux,])
 ```
 
@@ -618,7 +618,7 @@ mp_rf <- model_profile(explainer = explainer_rf,
   type = "partial"
 )
 
-plot(mp_rf, geom = "profiles") +  
+plot(mp_rf, geom = "profiles") +
   ggtitle("Ceteris-paribus and partial-dependence profiles for temp")
 
 # grey = all individual expectation plots
