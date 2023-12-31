@@ -66,7 +66,234 @@ Local regression techniques are particularly useful when dealing with complex, n
 - the goal is to model the relationship between the predictors and the response variable without making strong assumptions about the functional form of that relationship
 - allow the data to dictate the shape of the relationship
 
+## Local Polynomial Regression
+
+- the best prediction of the dependent variable Y given that predicting variable X takes the known value x it the conditional expectation of Y given that X = x -> m(x) = E(Y|X=x)
+- simple linear regression: y = β0 + β1x + ε
+- where betas are unknown parameters
+- nonparametric regression model: yi = m(xi) + εi
+- fitting a nonparametric regression model = to provide an estimator m(t) of m(t) to give an estimator σ²2 of the residual variance σ²
+
+**Local Linear Regression**
+
+- can capture non-linear relationships
+- fits a linear model to a subset of the data, emphasizing a specific region around a given point
+- often used when the relationship between variables is expected to vary across different parts of the data
+- fit a linear model within a local neighborhood of each data point, giving more weight to points that are closer to the point of interest
+- improve local linear regression with localization (centering each interval at t) and smoothing (assigning weights to each observation being a decresing function of distance |t-xi|)
+- weights are assigned by a kernel function K
+- h as smoothing parameter = bandwidth (controlling size of local neighboorhood and smoothness)
+  - if small only the closest observations to t have a relevant weight
+  - ig large allows distant observatoins to be taken into account for estimating m(t)
+- this solves the weighted least squares problem
+  - minimizing the sum of squared differences between observed and predicted values, with weights assigned to each data point based on its proximity to the point of interest
+- a kernel function is used to assign weights to data points
+- for each data point, a linear model is fit using a weighted least squares approach
+- the local linear fits adapt to changes in the underlying relationship, providing a smooth transition
+
+**Local poylnomial fitting**:
+
+- low-degree polynomial provides a smooth fit, while a higher-degree polynomial can capture more complex, non-linear relationships
+- using multiple unknown parameters β1....βq
+- weighted polynomial regression: the estimated coefficients depend on t, the point for which the regression function is being estimated
+- -> min SUM(wi(yi − (β0 + β1(xi − t) +...+ βq(xi − t)^q))²)
+- the estimate for m(t) is the locally fitted polynomial evaluated at x=t -> mˆq(t) = βˆ0(t)
+- when the degree of the locally fitted polynomial is q=0 (constant) the resulting nonparametric estimator of m(t) is a kernel estimator with moving weighted average
+- local polynomial regression estimator is a linear smoother (because for a fix t m^q(t) is a linear function)
+- polynomial degree 1 equal local linear regression
+- Nadaraya-Watson estimator is used for estimating the conditional expectation when using q=0 -> knows as kernel regression/kernel smoothing estimator
+  - assigning weights to each observation based on its distance to the point x0 and then using these weighted observations to estimate the conditional expectation
+
+**Linear Smoothers**:
+
+- smoothing data by fitting a linear model to data to reduce noise, emphasize trend and capture underlying patterns in data
+- e.g. moving average smoother, kernel smoother, splines, local linear regression
+- a nonparametric regression estimator is a linear smoother when for any fix t, m^(t) is a linear function
+  - m^(t) = SUM(w(t,xi)yi)
+- are particular cases of linear estimators of the regression function
+- matrix form: Y^=SY where S is the smoothing matrix
+  - the sum of diagonal of S is the effective number of parameters v
+- for any linear non parametric estimator (e.g. local polynomial regression) v is a decreasing function of smoothing parameter h
+  - small values of h correspond to large numbers v of effective parameters (highly complex and very flexible)
+  - large values of h correpsond to small number v of effective parameters (low complexity and flexibility)
+  - we can compare the degree of smoothing of two estimators by just comparing their effective numbers of parameters
+- estimaor of σ² = 1/n-v \* SSR
+  - SSR = SUM(yi - m^(xi)²)
+- variance explained = σ²/var(y)
+
+**Kernel Functions**:
+
+- a weight function that assigns weights to data points based on their distance from a specific point of interest
+- the purpose is to give higher weight to nearby data points and lower weight to more distant points when fitting a local polynomial model
+- these kernel functions are typically symmetrix and centered at zero
+- bandwidth parameter h determines the widht of the neighboorhood considered
+  - larger h -> wider neighboordhood, smoother but less sensitive
+  - smaller h -> narrower neighboorhood, capturing more details but introducing more variability
+- different shapes:
+  - Gaussian Kernel (Normal distributed) -> 1 variance
+  - Epanechnikov Kernel (runder Bogen) -> 1/5 variance
+  - Biweight Kernel 1/7 variance
+  - Triweight Kernel -> 1/9 variance
+  - Triangular Kernel (Dreieck) -> 1/6 variance
+
+#### Bias-Variance Trade-Off
+
+- local behavior: tatistical properties of nonparametric estimator as estimator of unknonw value m(t) for a fixed value t
+- global properties: when estimator considering all t in an interval
+- distance from m and m^ is measured by Integrated Mean Squared Error
+- AMSE for local linear estimator
+- the optimal value of AMSE(h) represents a compromise between bias and variance (increases with h), because the AMSE is the squared bias + variance (decreases with h)
+
+#### Bandwidth Choice
+
+- choice of smoothing parameter h is crucial for appearnce and properties of regression estimator
+- it controls the bias-variance trade-off
+- **estimation**:
+  - small h: high variance (applied to different smaple from the same model gives very different results), small bias (average of the estimarots obtained for different sample si ~ the true regression function)
+  - large h: small variance, high bias
+  - criterion: IMSE, MISE -> depend on m(t)
+- **prediction of new observations**:
+  - h controls the balance between fitting the observed data well and the ability to predict future observations
+  - small h: great flexibility, high prediction errors, overfitting as it approaches all observed data
+  - large h: underfitting, errors in observed sample and prediction errors will be high
+  - criterion: PMSE (expected squared error made when predicting) -> depends on m(t)
+- feasible criterion = RSS, that is optimistically biased
+- bandwidth choice with
+  - minimizing average squared prediction error in validation set (prediction error PMSE)
+  - Leave one out cross validation
+    - when sampling size does not allow us to set a validation set aside
+    - an approximately unbiased estimator of PMSE(h) but has high variance
+    - remove the observation (xi,yi) from the sample and fit nonparametric regression using other (n-1) data
+    - use resulting estimarot m^hi(xi) to predict yi and compute PMSE(h) for all bandwidth candidates = 1/n SUM(yi - m^hi(xi))²
+    - variance can be reduced with k-fold cross validation
+    - does require a validation set
+  - k-fold cross validation
+    - randomly divide sample in k subset and remove each of subset once and estimate with rest of subsets and compute PMSE
+    - has lower variance then looc but larger bias
+    - use 5-fold or 10-fold cv
+    - PMSE in cv can be calcualted more efficiently avoiding the cost of fitting n different models -> PMSE cv (h) = 1/n SUM((yi-yi^)/(1-sii))
+  - generalized cross validation (defined only for linear estimator of regression function)
+    - replacing values sii comding from the diagonal of smoothing Matrix S by their average value in PMSE calculation
+      - v = SUM sii = effective number of parameters
+      - σ²ε = 1/n-v SUM (yi-y^i)²
+      - PMSE gcv(h) = n \* σ²ε/n-v
+  - Plug-in: specific bandwith selector for local linear regression
+
+#### Choosing the degree q of the local polynomial
+
+- less important than bandwith choice
+- the larger q the better are the asymptotic properties (in bias)
+- in practice it is recommended to use q=r+1
+  - r is the order of the derivative of m(t) that is estimated
+- it is prefered to use the odd degree q = 2k +1 for estiamting
+  - odd degrees are able to automatically adapt to the boundary of the explanatory variable
+- decide if it is worth to fit a local cubic model q=3 instead of local linear model q=1
+  - bias is high for t in intervals where the funciton m(t) has high curvature
+  - therefore it would be better to use q=3 instead of q=1 in that case
+
+### Generalized Non Parametric Regression
+
+- non parametric versino of generalized linear model GLM
+- different types of response var Y e..g binary, count variable, non-negative
+- the conditional distribution of (Y|X=x) is in a parametric (exponential) family
+  - one of the parameters is a smooth function of x
+
+**Logistic Regression**:
+
+- regression with binary response
+- the conditional distribution of Y given X=x is a Bernoulli(p(x))
+- p(x) is known as logistic function
+- log(p/1-p) is known as logit function -> in the logistic regression function it is the link function because it links the conditional expectation P(x) with the linear term β0 + β1x
+- the estimation of parameters β0 and β1 is done by maximizing the log-likelihood function with IRWLS (iteratively re-weighted least squares)
+  - iterate until convergence
+
+**Generalized nonparametric regression model**
+
+- (X,Y) has a joint distribution of (Y |X = x) ∼ f (y; m(x), ψ)
+  - where m(x) = E(Y|X=x) is a smooth function of x
+  - ψ are other parameters not depending on x e.g. variance
+- an invertible link function g() exists θ(x) = g(m(x)), m(x) = g^−1(θ(x))
+
+**Estimation by maximum local likelihood**
+
+- we fit the logistic model by maximizing the local likelihood
+- the contribution to the log-likelihood function of each observation is yi\*log((pit)/1-pit) + log(1-pit)
+- the closer xi is to t, the better is the approximation
+- adding up all the data contributions weighted -> the local log-likelihood function is obtained
+  - lt() = SUM (wit * (yi*log((pit)/1-pit) + log(1-pit)))
+- the logisticc model is estimated by a weighted version of the IRWLS algorithm
+  - multiplying at each iteration the usual weights pis(1-pis) by the kernel weights wit
+- once the parameters βˆt0 and βˆt1 are obtained, the function θ(t) and p(t) can be estimated
+
+**Bandwidth Choice**
+
+- minimizing in h the probability of misclassification of a new observation
+  - using leave-one-out cross validation
+- maximizing in h the expected log-likelihood of a new observation
+  - using leave-one-out cross validation
+- using cross-validation
+
 ### Spline Smoothing
+
+**Penalized least squares nonparametric regression**:
+
+- non parametric regression model yi = m(xi) + εi
+- expressing the estimation problem as an optimizatioun problem
+- solving the penalized least squares problem
+  - adding a penalizaiont by the lack of smoothness to the Least Squares problem
+  - unique solution: cubic spline with knots at x1...xn (the observed values of the explanatory variable)
+- involves fitting a piecewise-defined polynomial (spline)
+- the spline is usually continuous across segments
+- the fitted splines consists of multiple polynomial segments connected at specific points called knots
+- selecting a appropriate number and positions of knots or tuning the smoothing parameter is crucial
+- flexibility is controlled by the choice of knots
+
+**Natural Cubic Splines**
+
+- using piecewise q=3 polynomials that are continuous and have first and second continuous derivatives at the knots
+- have additional constriant at the boundaries to ensure smoothness
+  - setting the second derivatives to zero at the endpoints
+- Natural cubic splines are appropriate for achieving smoothness, especially at the endpoints
+- periodic spline: form a closed loop (smoothly connects the last and first point) - repeats pattern over a specific interval
+  - setting the first and second dervivatives to be qual at the first and last knot
+  - helpful for timeseries data
+- use cubic polynomials between knots
+
+**Smoothing Splines**:
+
+- cubic splines that minimalize the penalized sum of squared differences
+- the degree of smoothness is controlled by a smoothing parameter
+- the spline estimator of m(x) is a linear smoother
+  - smoothing parameter choice with loocv/gcv
+  - efficient computation of loocv
+  - effective number of parameters
+  - estimation of the residual variance
+
+**B-Splines**
+
+- = basis splines
+- functions that form a basis for a space of piecewise-defined splines
+- basis for S[p; a = t0,t1, . . . ,tk ,tk+1 = b]
+  - degree p and knots t1...tk
+- basis of B-Splines of order 1 (degree 0) Bj,1 = I[τj,τj+1], j = 1, . . . , k + 2M − 1
+  - 2M are auxilary knots
+  - m=M=4 is the basis of cubic splines
+
+**Regression Splines**
+
+- in practice it is not necessary to look for those having knots at every observed xi, as computational cost for large values of n is high
+- it is enough to take a sufficiently large number of k knots
+- knots can be evenly spaced or they can be the quantiles
+- tunning parameters, λ and k play the role of smoothing parameters
+  - λ = 0, the number of knots k acts as smoothing parameter
+  - if k is fixed and large, then λ = 0, t is the only smoothing parameter (common option)
+
+**Generlaized nonparametric regression with splines**
+
+- use Penalized Iteratively Re-Weighted Least Squares (P-IRWLS)
+  - at each step of the IRWLS algorithm a glm model is fit and the linear fit is replaced by spline smoothing
+- alternative: To fit a GLM using a cubic B-spline basis matrix as regressors
+  - the number of knots k controls the amount ofsmoothing
 
 ### Local Poison Regression
 
@@ -281,7 +508,7 @@ for (covariate in colnames(data[, -ncol(data)])) {
 
 - risk of extrapolation: when X and Z are strongly correlated using a replaced version f(X,Z') the support could be much larger than the support of (X,Z)
 
-**extrapolation** involves making predictions for input values that extend beyond the range of the training data
+**extrapolation** involves making predictions for input values that extend beyond the range of the training data, assumes continuity
 
 **Concept of permutations**:
 To replace the values of Z in the test set by “perturbed” values of them, which are independent of the response variable Y , given the other explanatory variables X

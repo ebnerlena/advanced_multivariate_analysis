@@ -60,7 +60,7 @@ par(op)
 
 Using the function `locpolreg`.
 ```{r}
-source("./04_non_parametric_regression/locpolreg.R")
+source("./locpolreg.R")
 ```
 
 

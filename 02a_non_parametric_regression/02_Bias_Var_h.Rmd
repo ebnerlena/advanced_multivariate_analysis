@@ -35,7 +35,7 @@ lines(x,y0)
 
 We use "locpolreg"
 ```{r}
-source("./04_non_parametric_regression/locpolreg.R")
+source("./locpolreg.R")
 ```
 
 ```{r,fig.asp=1}
@@ -59,33 +59,35 @@ We define a function that generates artificial data and compares the estimated r
 # sim.sinus Generates artificial data and compare the estimated 
 #           regression function with the real one
 #
+# This function simulates data from a sinusoidal function, adds random noise, and performs local polynomial regression on the simulated data
 sim.sinus<- function(n=100, nt=100, sigma.e =.2, S=1, h=.2,
                      q=1,doing.plot=TRUE, doing.plot.locpolreg=FALSE, ...){
-    x <- seq(0,1,length=n)
-    mx <- sin(2*pi*x)
+    x <- seq(0,1,length=n) # create a sequence of n equally spaced values
+    mx <- sin(2*pi*x) # create sinusoidal function mx based on x values
     
-    tg <- seq(0,1,length=nt) 
-    mtg <- sin(2*pi*tg)
+    tg <- seq(0,1,length=nt) # create timegrid for plotting with nt points
+    mtg <- sin(2*pi*tg) # creates true sinusoidal function based on time grid
 
     mean.hmtg <- 0*mtg
     mean.hmtg2 <- 0*mtg
-
+  
+    # local polynomial regression loop
     for (i in seq(1:S)){
        y <- mx + rnorm(n,0,sigma.e)
        hmtg.aux <- locpolreg(x=x,y=y,h=h,q=q,r=0,tg=tg,ylim=c(-1.2,1.2),
                              doing.plot=doing.plot.locpolreg,...)$mtg
        if (doing.plot.locpolreg) lines(tg,mtg,col=2)
-       mean.hmtg <- mean.hmtg + hmtg.aux
-       mean.hmtg2 <- mean.hmtg2 + hmtg.aux*hmtg.aux
+       mean.hmtg <- mean.hmtg + hmtg.aux # update mean of the regression function
+       mean.hmtg2 <- mean.hmtg2 + hmtg.aux*hmtg.aux # updatd squared mean
     }
     mean.hmtg <- mean.hmtg/S
     mean.hmtg2 <- mean.hmtg2/S
     sd.hmtg <- sqrt(mean.hmtg2-mean.hmtg*mean.hmtg)
     if (doing.plot){
-      plot(tg,mtg,type="l",ylim=c(-1.2,1.2))
+      plot(tg,mtg,type="l",ylim=c(-1.2,1.2)) # plot true sinusoidal function
       lines(tg,mean.hmtg,col=4)
-      lines(tg,mean.hmtg+2*sd.hmtg,col=3,lty=2)
-      lines(tg,mean.hmtg-2*sd.hmtg,col=3,lty=2)
+      lines(tg,mean.hmtg+2*sd.hmtg,col=3,lty=2) # confidence inteval
+      lines(tg,mean.hmtg-2*sd.hmtg,col=3,lty=2)  # confidence inteval
       lines(tg,mtg,col=1)
     }
     return(list(mean.hmtg=mean.hmtg,sd.hmtg=sd.hmtg))
@@ -99,11 +101,13 @@ h.v=c(.025,.1,.4)
 
 op <- par(mfrow=c(2,3))
 
+# iterate over bandwidths
 for (h in h.v){
     # simulated data
     x <- seq(0,1,length=n)
     mx <- sin(2*pi*x)
     
+    # create timegrid and tru sinusoidal function
     tg <- seq(0,1,length=nt) 
     mtg <- sin(2*pi*tg)
     plot(tg,mtg,type="l",ylim=c(-1.2,1.2))
@@ -111,7 +115,8 @@ for (h in h.v){
 
     mean.hmtg <- 0*mtg
     mean.hmtg2 <- 0*mtg
-
+    
+    # run S simulariont of the local polynomial regression
     for (i in seq(1:S)){
        y <- mx + rnorm(n,0,sigma.e)
        hmtg.aux <- locpolreg(x=x,y=y,h=h,q=q,r=0,tg=tg,ylim=c(-1.2,1.2),
@@ -121,6 +126,7 @@ for (h in h.v){
     lines(tg,mtg,col=1,lwd=2)
 }
 
+# iterate over bandwidths and simulate estimation with sim.sinus
 for (h in h.v){
    sim.sinus(n=n, nt=nt, S=S, sigma.e=sigma.e, h=h, 
              doing.plot=TRUE, type.kernel="epan")
@@ -138,31 +144,32 @@ sim.sinus.hv <- function(n=100, nt=100, sigma.e =.2, S=1, hv=c(.2,.4), q=1, ...)
   mx <- sin(2*pi*x)
   
   tg <- seq(0,1,length=nt) 
-  mtg <- sin(2*pi*tg)
+  mtg <- sin(2*pi*tg) # treu sinusoidal function
   
-  nh <- length(hv)
+  nh <- length(hv) # number of bandwidth values
   
   hmtg.aux   <- matrix(0,nrow=nh,ncol=nt)
   mean.hmtg  <- matrix(0,nrow=nh,ncol=nt)
   mean.hmtg2 <- matrix(0,nrow=nh,ncol=nt)
   
   for (i in seq(1:S)){
-    y <- mx + rnorm(n,0,sigma.e)
+    y <- mx + rnorm(n,0,sigma.e) # generate simulated y data
     for (j in (1:nh)){
+      # perform local polynomial regression for each bandwidth in each simulation S
       h <- hv[j]
       hmtg.aux[j,] <- locpolreg(x=x,y=y,h=h,q=q,r=0,tg=tg,ylim=c(-1.2,1.2),
                             doing.plot=FALSE,...)$mtg
     }
-    mean.hmtg  <- mean.hmtg  + hmtg.aux
+    mean.hmtg  <- mean.hmtg  + hmtg.aux 
     mean.hmtg2 <- mean.hmtg2 + hmtg.aux^2
   }
-  mean.hmtg  <- mean.hmtg/S
+  mean.hmtg  <- mean.hmtg/S # calculate mean 
   mean.hmtg2 <- mean.hmtg2/S
-  sd.hmtg <- sqrt(mean.hmtg2-mean.hmtg*mean.hmtg)
+  sd.hmtg <- sqrt(mean.hmtg2-mean.hmtg*mean.hmtg) # calculate standard deviation
   dt <- (tg[2]-tg[1])
-  IntBias2 <- apply(mean.hmtg, 1, function(x,mtg,dt){sum((x-mtg)^2)*dt},mtg,dt)
-  IntVar <- apply(sd.hmtg,1,function(x,dt){sum(x^2)*dt},dt)
-  IMSE <- IntBias2 + IntVar
+  IntBias2 <- apply(mean.hmtg, 1, function(x,mtg,dt){sum((x-mtg)^2)*dt},mtg,dt) # calculate integrated bias squared
+  IntVar <- apply(sd.hmtg,1,function(x,dt){sum(x^2)*dt},dt) # calculate integrated variance
+  IMSE <- IntBias2 + IntVar # calculate integrated mean squared error
   return(list(mean.hmtg=mean.hmtg,sd.hmtg=sd.hmtg, IntBias2=IntBias2, IntVar=IntVar, IMSE=IMSE))
 }
 ```
