@@ -293,7 +293,65 @@ Local regression techniques are particularly useful when dealing with complex, n
 - use Penalized Iteratively Re-Weighted Least Squares (P-IRWLS)
   - at each step of the IRWLS algorithm a glm model is fit and the linear fit is replaced by spline smoothing
 - alternative: To fit a GLM using a cubic B-spline basis matrix as regressors
-  - the number of knots k controls the amount ofsmoothing
+  - the number of knots k controls the amount of smoothing
+
+### Generalized Additive Models GAM
+
+- useful when dealing with complex relationships and patterns in the data
+
+**Local polynomials for multiple nonparametric regression**
+
+- multiple nonparametric regression yi = m(xi1, . . . , xip) + εi
+- the local polynomial estimator of the regression function m(x) needs
+  - the weights wi for each observation
+    - measure distances between t and xi in p-dimensional space, where ci closer to t should have a greater weight
+  - specify which explanatory variables are inclued at each local linear regression model - the estimate of m(t) will be the intercept of the local polynomial fitted around point t
+
+TODO
+**Tensor Product Splines**
+
+- a type of spline basis that is formed by taking the tensor product of one-dimensional spline bases
+- these bases are used to represent smooth functions in two or more dimensions
+- the spline basis is constructed by taking the tensor (outer) product of the one-dimensional spline bases
+- a tensor product basis of functions for functions depending on both x and z
+- main drawback: exponential growth in basis functions as p increases
+
+**Curse of dimensionality**:
+= In high dimensional spaces the neighborhood of any point contains virtually no observational data
+
+- it is recommended not to go beyond 3 or 4 dimensions
+- the higher the dimension p of explanatory variable, the lower the precision with which the regression functoin is estimated
+- additive models and projection pursuit are proposals to overcome the curse
+
+**Additive Models**:
+
+- nonparametric regression models that are less flexible than the multiple nonparametric regression model
+- are good when number of explanatory variables is high
+- are able to overcome the curse of dimensionality
+- yi = α + SUM(gj(xij) + εi)
+- functions gj must be estimated nonparametricaly because no parametric model is specified for them
+- the nonparametric univariate functions gj are combined additively to produce the nonparametric p-dimensional regression function
+- halfway between the multiple linear regression model (which combines linear transformations of the explanatory variables) and the multiple non parametric regression model
+- E(yi) = α, because E(εi) = 0 and E(gj(Xj)) = 0
+- the additive model is estimated with **backfitting**
+  - by estimating α by α^=(1/n)SUM(yi) until convergence
+- the GAM model is estimated as a penalized multiple linear regression model with 1 + SUM(Hj) parameter
+- smoothing parameters λ1, . . . , λp are chosen by LOOCV or GCV
+
+**Generlized Additive Models GAM**
+
+- with restriction that functions gj are linear in α + SUM(gj(xj))
+- halfway between the generlized nonparametric multiple regression model and the Generalized linear model
+- estimation of a GAM model combins the methods to fit additive models with the IRWLS algorithm (used to maximize the likelihood in GLM)
+- in IRWLS, each multiple linear regression fit is replaced by fitting of a weighted additive model
+  - using backfitting or penalized multiple linear regression
+
+**Semiparametric Models**
+
+- if the response variable is linear the GAM can be reformulated as gj(xj)=βjxj
+- nonparametrically estimating the combined effect of two (or more) explanatory variables e.g. replacing gj(xj) + gh(xh) by gjh(xj, xh)
+- estimating the effect of a variable xj differently at each of the lcasses determined by another categorical variable xh (can be done linearly or nonparametrically)
+- can be fitted using the `gam` R function of the `mgcv` package
 
 ### Local Poison Regression
 
