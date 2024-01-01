@@ -2,17 +2,20 @@
 
 ## Introduction
 
-Supervised Learning (the prediction problem):
+**Supervised Learning** (the prediction problem):
 
 - Regression: Predicting of a quantitative response.
 - Classification (or discriminant analysis): Predicting a qualitative variable
+- Main interest: measure the error of predicting y with y^ in the conditional distribution Pr(y|X=x)
 
-Unsupervised Learning (to learn relationships and structure from data):
+**Unsupervised Learning** (to learn relationships and structure from data):
 
 - Density estimation (histogram, kernel density estimation, ...)
 - Clustering (hierarchical clustering, k-means, ...)
 - Dimensionality reduction (PCA, MDS, principal curves, ISOMAP, manifold learning, ...),
 - Detecting communities in social networks
+- Extraction of latent variables
+- Main interest: To infer properties of Pr(x)
 
 **Prediction problem**: To look for a prediction function h : X ↦→ Y such that h(X) is close to Y in some sense.
 The (lack of) closeness between h(X) and Y is usually measured by a **loss function** (cost function e.g. MSE, MAE, Log Loss) L(Y , h(X)).
@@ -41,9 +44,73 @@ Nonparametric regression models do not specify the form of the regression functi
 
 ## Density Estimation
 
+- used to estimate the probability density function (PDF) of a random variable
+- goal is to model the underlying distribution of the data without assuming any specific parametric form, such as normal distribution.
+- Pr(a <= X <= b) = Integral of a to b f(x)dx
+  - f(x)=probability/length
+  - we want to estimate the value of f(x) in a nonparametric way
+
 ### Histogram
 
+- simplest method involves dividing the range of the data into bins and counting the number of data points in each bin
+- for b0 < b1 < . . . < bm define the invertval Bj = (bj-1, bj)
+- compute nj = #{xi in Bj}; pj=nj/n
+- over the interval Bj draw a rectangle with height fj such taht its area are equals pj
+  - fj = pj = pj/(bj- b(j-1)) = estimated probability/length
+- the height of each bin is proportional to the estimated density
+- we want to estimate the density function f at point x
+  - if x does not belong to Bj, f(x) = 0
+  - if x belongs to Bj, f(x) = the height of fj = f^H(x) = fj = pj/bj-b(j-1)
+- Histogram estimator: f^H(x) = SUM(pj/bj-b(j-1)/Bj(x))
+- usually the intervals have the same width bj-b(j-1) = b
+- f^H(x) is a true densitiy function it it non-negative and it integrates up to 1
+- it is a non-continuous step function
+  - it is not smooth: it is discontinuous and piece-wise constant
+- very simple in calculation and interpretion
+- it's appearance strongly depends on the width of intervals b
+  - when b is large: histogram has high bias and low variance
+  - when b is small: histogram has low bias and large variance
+
 ### Kernel Density Estimator
+
+- nonparametric estimator that outperform the histogram
+- smooths the data by placing a kernel (smooth, symmetric function) at each data point and summing up these kernels to estimate the density
+- the bandwidth of the kernel determines the amount of smoothing
+- 1. **localization**: moving histogram
+  - the histogram estimated better the density function at the center of each interval than at its boundaries
+  - we force x to be center of one of the histogram intervals when we want to estimate the density for x
+  - so move the density around x
+- 2. **smoothing**
+  - using a kernel function K(u) for estimating the density to obtain smoothness, contiousness, unimodel and symmetric around 0
+  - h is known as smoothing parameter = bandwidth
+    - if small: only the observations xi that are close to x are relevant in the estimation, large variance -> very differend from sample to sample, in average captues the unknown density function -> small bias
+    - if large: also far away observations from xi are considered in estimation, small variance but largee bias, stable from sample to sample
+- f^K(x)= 1/n _ (SUM(1/h _ K ((x-xi)/h)))
+- the kernel density estimator spreads the weight 1/n of each observation in its neighborhood in a continuous way
+- the bandwidth is choosen by maximum likelihood cross validation based on LOO
+  - for a given h, the likelihood of observation xi is evaluated using the density estimator computed from the other elements in the sample
+  - we look for the maximum value hLVC(h) = Product of f^h(-i) (xi)
+  - it is enough to perform the estimation just once using all observations
+  - in practice it is advised to use the logarithm of the LOO Likelihood
+
+**Multivariate Density Estimation**
+
+- estimate the joint probability density function (PDF) of multiple random variables
+- placing a kernel at each data point and summing up these kernels to estimate the joint density
+- H is a non-singular bandwidth matrix = a diagonal matrix H = Diag(h1,...,hp)
+- fˆ(x) is a mixture of n densities, each of them centered at one of the observation
+
+**R Software**:
+
+- Functions `hist`, `density`. Bandwidth choice: `bw.nrd`, `bw.ucv`, `bw.bcv`, `bw.SJ`
+- Package `KernSmooth` function `bkde` (for density estimation) and `dpik` (for bandwidth choice)
+- Package `sm` functions `sm.density` (for density estimation) and `h.select` (for bandwidth choice)
+- Package `ks` function `kde` (for density estimation) and several functions for bandwidth choce
+
+### Gaussian Mixture Models GMM
+
+- assumes that the data is generated from a mixture of several Gaussian distributions
+- estimates the parameters (means, covariances, and weights) of these Gaussians to model the overall density
 
 ---
 
@@ -307,7 +374,6 @@ Local regression techniques are particularly useful when dealing with complex, n
     - measure distances between t and xi in p-dimensional space, where ci closer to t should have a greater weight
   - specify which explanatory variables are inclued at each local linear regression model - the estimate of m(t) will be the intercept of the local polynomial fitted around point t
 
-TODO
 **Tensor Product Splines**
 
 - a type of spline basis that is formed by taking the tensor product of one-dimensional spline bases
