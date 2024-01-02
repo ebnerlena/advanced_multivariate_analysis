@@ -262,7 +262,7 @@ Cluster Linkage
 - outliers do not belong to any cluster
 - the number of clusters must not be specified in advance
 - the core points in a cluster are a subset of observed points belonging to the same connected component of the level set of the estimated density function
-- dbcan is robust against outliers
+- dbscan is robust against outliers
 
 **Algorithm**:
 
@@ -300,6 +300,101 @@ Cluster Linkage
 ---
 
 ## Dimensionality Reduction
+
+- **Dimensionality reduction problem**:
+  - Looking for a low dimensional configuration Y, that is a n × q matrix, q < n,
+  - such that each of its row yi can be identified with the observed Oi in some way
+- when dimensionality reductino is for visualizing data, q=2 is usally chosen
+- we can consider 2 different ways of extracting information from this sample of objects
+- 1. sampling information as data matrix X
+  - PCA, Principal Curves
+- 2. sampling information as distance matrix D
+  - MDS, Local MDS, ISOMAP, t-SNE
+- other techniques: Self organized maps, neural networks auto-encoders, local linear embeddings
+
+### PCA
+
+- = principal component analysis
+- intends to explain the variance-covariance structure through a few linear combinations of the original variables
+- main goals: interpretation and better understanding of original data + dimensionality reduction
+- PCA aims to transform high-dimensional data into a lower-dimensional space while preserving the maximum variance in the data
+- Identify the principal components, which are orthogonal vectors that capture the directions of maximum variance in the original data
+- Principal components are ordered by the amount of variance they explain, with the first principal component explaining the most variance
+- 2 approaches
+  - 1. minimizing the orthogonal residuals (q=1) with looking for minimal sum of squared orthogonal residuals
+  - 2. maximizing the ineratia of the projected data (q=1)
+    - the direction a with maximum ineration of projected sample is the 1st principal component
+    - the inertia of the projected data is proportional to the sampling variance of the projections
+    - t the maximum is λˆ1, the largest eigenvalue of S is reached when a = vˆ1, the corresponding eigenvector of S
+- sampling principal components are uncorrelated linear combinations of the observed variables having the largest possible variability
+  - meeting the goal: interpretation or better understanding of data
+- **Steps**:
+  - 1. standarize data
+  - 2. compute covariance matrix
+  - 3. perform eigendecomposition on the covariance matrix to obatin the eigenvectors (principal components) and eigenvalues
+  - 4. sort eigenvectors
+  - 5. choose top k eigenvectors to form the transformation matrix
+
+**SVD**:
+
+- a factorization of a matrix into three matrices, providing a robust and general method for dimensionality reduction
+- decompose a matrxi X intro three matrices U, D, V^T
+- PCA can be viewed as specific application of SVD
+- the transformed data in PCA can be obtained by multiplying the standardized data matrix by the matrix of principal components
+
+### MDS
+
+- based on inter-interviduals distances
+- a dimensionality reduction technique used to visualize the pairwise dissimilarities or similarities between a set of objects in a lower-dimensional space
+- main goal of MDS is to represent the pairwise relationships between objects in a way that preserves their original dissimilarities as much as possible
+- MDS is used to obtain a configuration X, a n × q matrix (q ≤ n) such that the Euclidean distance between rows i and j is approximately equal to δ(i, j)
+- takes as input a matrix of dissimilarities or similarities between pairs of objects
+- X is an Euclidean configuration of D
+  - columns of X are called principal coordinates
+- D is the dissimmilarity (distance) matrix between individuals i and j
+- ∥xi − xj∥, is equal to δij
+- MDS looks for a q-dimensional configuration X such that euclidean distance between i-th and j-th rows of X ∥xi − xj∥, is approximately equal to δij , for all i and j
+- **Steps**
+  - 1. Compute a matrix of squared Euclidean distances from the dissimilarity matrix
+  - 2. Find the configuration of points is determined by minimizing a stress criterion which measure the difference between the original dissimilarites and the pariwise distances in reduced space
+
+**Classical metric scaling**:
+
+- preserves the actual distances between points in the original space
+- assumes that the dissimilarity are metrix adn the underlying space is Euclidean
+- minimizes the difference between the observed dissimilarities and the pairwise distances in the reduced space
+- euclidean distance can be computed from inner (scalar) products
+- and inner products can be recovered from distances
+- if useing euclidean distances same results as with PCA are obtained
+- output: Provides a configuration of points in a Euclidean space
+
+**Non-classical metric scaling**:
+
+- also preserves the actual distances between points
+- relaxation of stric metrix assumption allowing for non-Euclidean spaces
+- using inter-individual distances dij = ∥xi − xj∥ as eculidean distance between rows i and j of X
+- the STRESS Metric, a measure of relative error
+  - Sqrt( SUM ((δij − dij)²/SUM(δ²ij)))
+  - we look for the minimum stress value
+
+**Non-metric scaling**:
+
+- preserves the rank order or ordinal relationships between dissimilarities rather than the actual distances
+- uses only the ranks of the inter-individual distances δij
+- find a configuration of points in a lower-dimensional space where the rank order of distances is preserved
+- non-metric STRESS = SUM ((f(δij) − dij)²/SUM(δ²ij))
+- we look for the minimum stress value
+- output: provides a configuration of points where the order of distances is similar to the original dissimilarities, but not the actual distances
+
+TODO: check code MDS ex Morse code.Rmd. again
+
+### Principal Curves
+
+### local MDS
+
+### ISOMAP
+
+### t-SNE
 
 ---
 
