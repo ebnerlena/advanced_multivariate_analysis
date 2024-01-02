@@ -116,9 +116,186 @@ Nonparametric regression models do not specify the form of the regression functi
 
 ## Clustering
 
-### Dbscan
+- the goal is to group a collection of objects into subsets or clusters C1,...Ck
+- in such way that those within each cluster are more closely related to each other than the objects assigned to different clusters
+- the right number of clusters is not known in advance
+- objects are clustered by their set of attributes, features or variables by its distance or similarity
+
+**Distances / Similarities**
+
+- **distance d**: Ω × Ω → R is symmetric, non-negativ, triangular inequality
+- **similarity s**: Ω × Ω → R is symmetric, non-negativ, an s(P,Q) is an increasing function of the proximity of P and Q
+  - kernel functions can be used as similarity measure (e.g. like in SVM)
+- if d(P,Q) is a distance -> s(P,Q) = 1/(1 + d(P,Q)) is the similarity
+- if s(P,Q) is a kernel similarity function -> d(P,Q) = SQRT(2(1-s(P,Q))) is the distance
+
+- distances can be measured with
+  - euclidean distance with L2-norm (numeric attributes)
+  - mikowski distance (numeric attributes)
+  - cross table (for binary attributes)
+  - mismatch distance (for categorical attributes)
+  - normalized distance with ranks rx and ry (for ordinal attributes) |rx-ry|/m
+  - gower's distance (for mixed variables) using any distance measure for each variable and aggregating them
+
+### Hierachical Clustering
+
+- provides a list of n consecutive partitions of the set of the n observed objects
+  - first partition contains only one cluster
+  - second partition contains two clusters
+  - ....
+- partitions Cg and that with Cg+1 contain (g-1) identical clusters
+- the list of partitions are usually represented graphically as dendrogram (rooted binary tree, where root node represents the entire data set)
+- n levels in the hierachy
+
+Strategies
+
+- **agglomerative** (bottom-up)
+  - start at bottom and at each level recursively merge a selected pair of clusters intro a single cluster
+  - this produces a grouping at the next higher level with one less cluster
+  - the pair chosen for merging consist of the two groups with the smallest between-group dissimilarity (using distance matrix D)
+- **divisive** (top-down)
+  - start at top and at each level recursively split one of the existing clusters at that level into two new clusters
+  - the split is chosen to produce two new groups with the largest between group dissimilarity
+
+Cluster Linkage
+
+- **single linkage** (nearest neighbor)
+  - d(UV),W = min{dU,W , dV ,W }
+  - join clusters by the shortest link between them
+  - can discover non-ellipsoidal clusters
+- **complete linkage** (furthest neighbor)
+  - d(UV),W = max{dU,W , dV ,W } =
+  - tends to produce compact clusters with small diameters
+- **average linkage**
+  - compromise between single and complete linkage
+  - d(UV),W = SUMi SUMj dij/(#(UV) \* #(W))
+
+**Ward's Hierachical Clustering**
+
+- based on minimizing the loss of information from joining two groups
+- Loss of information = Increase in the sum of square distances
+- for cluster U the sum of square distances is SSD = SUM(dij²)
+- SUM(SSD Uj) is the total sum of square distances of the partition Uj
+- the union of every possible pair of clusters is considered and the two clusters whose combination results in the smallest increase in SSD are joined
 
 ### K-means
+
+- a non-hierachical clustering method
+- can be used when the infromation observed at each object is a p-dimensional numerical vector
+  - because it requires to compute the average of the observations belonging to each cluster
+- K-medoids is a generalization of K-means that only needs a distance matrix between objects (no averages must be computed)
+  - more robust then k-means
+- the number of final clusers k is known in advance
+
+**Algorithmn**:
+
+- divide data into U1,...Uk random partition of K clusters
+- for the given clusters K find the mean of each cluster that will be the current estimates of the clusters center
+- given a current set of clusters centers {m1,...mk} miminize the total sum of distances by assigning each observation i to the closest cluster center
+  - if argmin k(i) = d(xi,mk) assign i to cluster k(i)
+- iterate until the assignments do not change
+
+### Clustering Quality
+
+- how many clusters are in a dataset?
+- how to cut the dendrogram representing a hierachical clustering?
+- how to determine the number of K lcustes when applying k-means or k-Medoids?
+
+**Determining the number of clusters**:
+
+- visual inspection of the dendrogram
+- **gap statistic**
+  - goodness-of-clutering measure
+  - compute clusters sum of squared distnaces for a partition in K clusters
+  - compares performance of clustering algorithm on the actual data to its performance on a reference dataset with no inherent clustering structure
+    - generate a reference dataset by randomly permuting vlaues of each variable independently
+  - compute difference betweent the log of the reference and actual clustered data
+  - repeat for different numbers of clusters and choose the number of clusters where the gap statistics is maximized -> smallest K producing a gap within one sd
+- **silhoutte**
+  - measures how well-defined the clusters are in a given partition
+  - for each data point calculate the silhoutte score [-1,1]
+    - high score indidcates that data point is well matched to its own cluster and poorly to neighboring clusters, 0 mean that observatio lies between 2 clusters, -1 means probaly placed in wrong cluster
+  - compute average silhoutte score for all data points which gives an indication of how-well-separated the clusters are
+  - repeat for different numbers of clusters
+  - choose the number k of clusters that maximizes the score
+- **calinski and harabasz index**
+  - measures the ratio between the variance of the between-clsuter dispersion and the variance of the within-cluster dispersion
+  - aims to classify the compactness of clusters and the seperation between them
+  - 1. Compute the Between-Cluster Dispersion: across cluster, reflects how much cluster centers differ from each other
+  - 2. Compute the Within-Cluster Dispersion: wihtin each cluster, reflects the compactness of the clusters
+  - 3. compute Calinski-Harabasz Index: CH = Between-Cluster Dispersion/Within-Cluster Dispersion x (n-k)/(k-1)
+  - repeat for different numbers of clusters
+  - choose number of k that maximizes the score
+
+### Mixture Models for Density Estimation and Clustering
+
+- mixture of several underlying subpopulations or components, each characterized by a probability distribution
+- the assumption that the true density function f(x) follows a mixture model is useful for density estiamtion when p is large
+- parametric mixture model: f(x) = SUM(αj fj(x; θj))
+- e.g gaussian mixture model is density funciton of a multivaraite normal with mean vector µj and variance matrix Σj
+  - the underlying components are assumed to be Gaussian (normal) distributions
+  - is a parametric model that assumes that the observed data is generated from a mixture of several Gaussian distributions
+  - each component in the mixture represents a cluster in the data, and the overall distribution is a weighted sum of these components
+- Clustering based on parametric mixture models is called **model-based clustering**
+- fitting of a GMM to data is often done using the **Expectation-Maximization (EM) algorithm**
+  - iteratively estimates the parameters of the model by alternating between an "expectation" step (E-step) and a "maximization" step (M-step) until convergence
+- determining the number of compontents is a critical task; crterions are AIC, BIC
+
+### Dbscan
+
+- density based spatial cluserting with noise
+- groups data points together based on their density in a feature space
+- can discover clustrs of arbitrary shapes and sizes (k-means assumes spherical shape and are equally sized)
+- **clusters** = connected areas of the sample space with high density of observations
+- **noise** = observed points not belonging to any cluster
+- ε-neighborhood of xi = Nε(xi) = {xj ∈ D : d(xi, xj) ≤ ε}
+- the density of ovservations around xi is estimaed by the number of observations at Nε(xi): #Nε(xi)
+- DBSCAN parameters:
+  - small distance ε > 0
+  - minimum number of points minPts
+- **Core points**: a point xi if #Nε(xi) >= minPts (if estimated density of xj is over a certain threshold)
+- **Border points:** a non-core point xj if there is at least a core point xi such that d(xi,xj) <= ε
+- **Outlier points**: points that are neither core points nor border points are said to be outliers
+- **Density connected**: two points are density connected if there is a path of core points x1,...xm such that d (xj, x(j+1)) <= ε
+- Clusters are subsets of density-connected points (all points in a cluster are density connected)
+  - if a point xi is density connected with another point xj, then both belong to the same cluster - only core and border points belong to clusters
+- outliers do not belong to any cluster
+- the number of clusters must not be specified in advance
+- the core points in a cluster are a subset of observed points belonging to the same connected component of the level set of the estimated density function
+- dbcan is robust against outliers
+
+**Algorithm**:
+
+1. select hyper-parameters ε and minPts
+2. mark each observed points as either core, border or outlier
+3. remove outliers from dataset
+4. set j = 1
+5. select a random core point and define the cluster Cj = {x1j}
+6. add to Cj all the core points that are density connected to x1j
+7. add to Cj all the border points that re density connected to x1j
+8. remove cj from the dataset
+9. repeat form step 5 until there are no core points left
+
+### R:
+
+- `hclust`, `plot.hclust`, `cutree` for hierarchical methods
+- `kmeans` for K-means
+- `pam` (package cluster) for K-medoids
+- Package `ClusterR` includes K-Means, K-Medoids and Gaussian Mixture Models (GMM)
+- Gap statistic. See the function `clusGap` of the R package `cluster`
+- Silhouette. See the function `silhouette` of the R package `cluster`
+- Calinski-Harabasz index. See the function `cluster.stats` of the R package `fpc`
+- Package `ClusterR` includes functions that determine the optimal number of clusters in K-Means, K-Medoids and GMM.
+- Function `GMM` fits Gaussian Mixture Models using the EM algorithm
+  - includes the function `Optimal_Clusters_GMM `to determine the optimal number of clusters in GMM
+- `ClusterR` also performs other clustering methods as K-Means and K-Medoids
+- Package `mclust`: package for model-based clustering, classification and density estimaiont baed on normal mixture modeling
+  - function `Mclust`: model based clsutering based on a parameterized finite GMM, estimated with EM and selected best model with BIC
+- Package `fpc`:
+  - `mergenormals`: cluserings by merging components of a Gaussian mixture
+  - `cluster.stats`: computes several cluster validity statistics fomr a clustering and a dissimilarity matrix
+  - `dbscan`: Computes DBSCAN density based clustering
+- Package `dbscan`, function `dbscan`: Fast reimplementation of the DBSCAN.
 
 ---
 

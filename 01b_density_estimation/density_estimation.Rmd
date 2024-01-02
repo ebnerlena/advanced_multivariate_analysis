@@ -17,8 +17,7 @@ Three-month certificate of deposit (CD) rates for 69 Long Island banks and thrif
 
 Reading CDrate.
 ```{r CDrate}
-insta
-cdrate.df <-read.table("./01_density_estimation/cdrate.dat")
+cdrate.df <-read.table("./cdrate.dat")
 head(cdrate.df)
 CDrate <- cdrate.df[,1]
 sort(CDrate)
@@ -33,7 +32,7 @@ stem(CDrate)
 The histogram as a function.
 ```{r}
 op<-par(mfrow=c(1,2),pty='s')
-hcdr <- hist(CDrate,breaks=seq(7.3999,8.7999,by=.2),fre=F) 
+hcdr <- hist(CDrate,breaks=seq(7.3999,8.7999,by=.2),fre=F) # freq=F = using density instead of frequency
 #hcdr <- hist(CDrate,breaks=seq(7.3999,8.7999,by=.2),plot=FALSE)
 plot(stepfun(hcdr$breaks,c(0,hcdr$density,0)),do.points = F,lty=3,
      main="The histogram as a function", xlim=c(7.4,8.8))
@@ -59,7 +58,7 @@ hist(Boston$lstat,br=seq(0,40,l=nbr),freq=F,xlim=c(0,40),ylim=c(0,.08))
 
 
 breaks <- c(0,2,4,7,10,14,18,24,30,40)
-hist(Boston$lstat,br=breaks,freq=F,xlim=c(0,40),ylim=c(0,.08)) # use fred=False is very important if using different bin widths
+hist(Boston$lstat,br=breaks,freq=F,xlim=c(0,40),ylim=c(0,.08)) # use freq=False is very important if using different bin widths
 par(op)
 ```
 
@@ -479,7 +478,7 @@ sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),phi=30,theta=60,col=5,
 
 sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),display="slice",
            xlab="lstat",ylab="rm")
-sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),display="slice",add=T,col=2,props=c(90))
+sm.density(cbind(Boston$lstat,Boston$rm),h=c(1.5,.15),display="slice",add=T,col=2,props=c(90)) # props = specify the probability level s for which the contours will be drawn e.g. 90%
 points(Boston$lstat,Boston$rm,pch=19,cex=.3)
 par(op)
 ```

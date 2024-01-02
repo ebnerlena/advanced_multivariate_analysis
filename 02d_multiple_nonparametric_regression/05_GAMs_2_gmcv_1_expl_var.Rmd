@@ -64,7 +64,7 @@ library(mgcv)
 # summary(lm_s_tp)
 
 # using gam we fit a nonparametric model, spline regression with only 1 explanatory variable
-# function as has several parameters ?s e.g. if we use fx=True we usse a regression spline without penalty
+# function as has several parameters ?s e.g. if we use fx=True we use a regression spline without penalty
 spl_gam_s_tp <- gam(lg.IMR ~ s(lg.LE))#bs="tp" by default
 summary(spl_gam_s_tp)
 plot(spl_gam_s_tp, residuals = TRUE,
@@ -79,7 +79,7 @@ lines(sm.sp.1,col=2,lwd=2)
 
 ```{r}
 # when we don't use k, it takes the default k which is 10 for 1 explanatory variable
-spl_gam_s_cr <- gam(lg.IMR ~ s(lg.LE,bs="cr"))
+spl_gam_s_cr <- gam(lg.IMR ~ s(lg.LE,bs="cr")) # using a cubic regression spline (default is ts thin plate regression spline)
 summary(spl_gam_s_cr)
 plot(spl_gam_s_cr, residuals = TRUE,
      shade=TRUE, cex=2, lwd=2, 

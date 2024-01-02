@@ -19,7 +19,7 @@ In particular we are interested in the joint distributions of centered and scale
 
 ```{r,fig.height=4.5,fig.width=4.5,fig.align='center',echo=TRUE,eval=TRUE}
 data("Boston", package = "MASS")
-X <- scale(Boston[,c(13,6)]) # scale data with standarddeviation
+X <- scale(Boston[,c(13,6)]) # scale data with standard deviation
 # because its better to work with data that is scaled,
 # then you can use standardplot in both axes and data is always same distributed
 plot(X,asp=1)
@@ -35,7 +35,7 @@ library(sm)
 plot(X,asp=1,col=8)
 sm.density(X,h=.5*c(1,1),display="slice",props=c(25,50,75,95),col=2,add=TRUE)
 # h=.5*c(1,1) = scaling both axes
-# kernel densitiy estimator result with optimal bandwidth of 0.3
+# kernel density estimator result with optimal bandwidth of 0.3
 ```
 
 Use the *maximum log-likelihood cross-validation method* for choosing the value of $a$, whem $a$ takes values in the vector `seq(0.1,1,by=0.1)`. Then repeat the previous density estimation using the chosen value of $a$.
