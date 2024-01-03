@@ -102,7 +102,7 @@ plot.zip <- function(x,use.first=FALSE){
 
 ```{r }
 # We analyze digits "0"
-zip.train <- read.table("03_principal_curves/zip.train")
+zip.train <- read.table("./zip.train")
 I.0 <- (zip.train[,1]==0)
 zip.0 <- zip.train[I.0,]
 n<-dim(zip.0)[1]
@@ -134,7 +134,7 @@ dim(prcv.0$s)
 # [1] 1194  256
 
 # fit principal curve to matrix of 0, where we have removed the first column
-# 356 dimensions in data
+# 256 dimensions in data
 ```
 
 ```{r, fig.height=3, fig.width=15}

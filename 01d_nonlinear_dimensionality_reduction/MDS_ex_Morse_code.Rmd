@@ -82,7 +82,7 @@ print(cumsum(pmax(out$eig,0))/sum(abs(out$eig)))
 print(cumsum(pmax(out$eig,0))/sum(pmax(out$eig,0)))
 ``` 
 
-3. Calcualting the goodness-of-fit (in percentage) of the three-dimensional solution:
+3. Calculating the goodness-of-fit (in percentage) of the three-dimensional solution:
 
 ```{r}
 # calculate and print the percentage of variance explained by the first three eigenvalues

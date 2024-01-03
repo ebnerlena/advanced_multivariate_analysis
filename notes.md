@@ -301,10 +301,17 @@ Cluster Linkage
 
 ## Dimensionality Reduction
 
+- PCA: It doesn’t work for non-linear configurations.
+- MDS: It depends on the distance that is used. Euclidean distance doesn’t work for non-linear configurations
+- Principal curves: Exploit the self-consistency properties
+- Local MDS: ... reproducing large distances is less important than reproducing the shorter ones
+- ISOMAP: ... large distances between objects are estimated from the shorter ones, by the shortest path length. Then shorter and estimated-larger distances have the same importance in a final MDS step
+-
+
 - **Dimensionality reduction problem**:
   - Looking for a low dimensional configuration Y, that is a n × q matrix, q < n,
   - such that each of its row yi can be identified with the observed Oi in some way
-- when dimensionality reductino is for visualizing data, q=2 is usally chosen
+- when dimensionality reduction is for visualizing data, q=2 is usally chosen
 - we can consider 2 different ways of extracting information from this sample of objects
 - 1. sampling information as data matrix X
   - PCA, Principal Curves
@@ -320,7 +327,7 @@ Cluster Linkage
 - PCA aims to transform high-dimensional data into a lower-dimensional space while preserving the maximum variance in the data
 - Identify the principal components, which are orthogonal vectors that capture the directions of maximum variance in the original data
 - Principal components are ordered by the amount of variance they explain, with the first principal component explaining the most variance
-- 2 approaches
+- approaches
   - 1. minimizing the orthogonal residuals (q=1) with looking for minimal sum of squared orthogonal residuals
   - 2. maximizing the ineratia of the projected data (q=1)
     - the direction a with maximum ineration of projected sample is the 1st principal component
@@ -338,7 +345,7 @@ Cluster Linkage
 **SVD**:
 
 - a factorization of a matrix into three matrices, providing a robust and general method for dimensionality reduction
-- decompose a matrxi X intro three matrices U, D, V^T
+- decompose a matrix X intro three matrices U, D, V^T
 - PCA can be viewed as specific application of SVD
 - the transformed data in PCA can be obtained by multiplying the standardized data matrix by the matrix of principal components
 
@@ -360,13 +367,17 @@ Cluster Linkage
 
 **Classical metric scaling**:
 
+- also knonw as principal coordinate analysis
 - preserves the actual distances between points in the original space
-- assumes that the dissimilarity are metrix adn the underlying space is Euclidean
+- assumes that the dissimilarity are metric and the underlying space is Euclidean
 - minimizes the difference between the observed dissimilarities and the pairwise distances in the reduced space
 - euclidean distance can be computed from inner (scalar) products
 - and inner products can be recovered from distances
 - if useing euclidean distances same results as with PCA are obtained
-- output: Provides a configuration of points in a Euclidean space
+- STRESS = Sqrt( SUM ((dij − Dij)²/SUM(Dij²)))
+  - dij is distance between points i and j in low-dim space
+  - Dij is dissimilarity in original space
+- output: provides a configuration of points in a Euclidean space
 
 **Non-classical metric scaling**:
 
@@ -374,7 +385,7 @@ Cluster Linkage
 - relaxation of stric metrix assumption allowing for non-Euclidean spaces
 - using inter-individual distances dij = ∥xi − xj∥ as eculidean distance between rows i and j of X
 - the STRESS Metric, a measure of relative error
-  - Sqrt( SUM ((δij − dij)²/SUM(δ²ij)))
+  - STRESS = Sqrt( SUM ((δij − dij)²/SUM(δij²)))
   - we look for the minimum stress value
 
 **Non-metric scaling**:
@@ -388,13 +399,158 @@ Cluster Linkage
 
 TODO: check code MDS ex Morse code.Rmd. again
 
-### Principal Curves
+### Principal Curves by HSPC
+
+- = smooth one-dimensional curves that pass through the middle of a p-dimensional data set, providing a nonlinear summary of the data
+- First principal component: the straight line fitting best the data
+- Problem: given a data set with a non-elliptical configuration -> look for the curve fitting best the data
+- Principal curves are non-linear and non parametric generalization of the first principal component
+- drawback: neither existence nor uniqueness are guaranteed
+- HSPC are generalizing a property that does not characterize uniquely the first principal component
+
+**Dimensionality reduction problem by a curve**:
+
+- looking for a 1-dim configuraion y, that is a vector of dimension n, such that each value of yi of y can be identified with the observed xi
+- there exsists a 1-dim differentiable parametric function α called curve, such that α(i) is close to the observed xi
+- α : R → R^p is also called a curve
+- for dimensions q, 1 < q < p, the concept of manifold extends that of the curve for q=1
+- approach: extend hyperplan around point yi and take average in hyperplane as new yi
+- Smoothing methods are used to estimate the conditional expectations
+  - by default smooth.spline function is used with choosing the smoothing param with GCV
+  - can also be tuned by passing df to principal_curve function
+    - low values of df means low flexibility, large values means large flexibility
+    - more flexibility means more ups and downs in curve
+
+**Self Consistency**:
+
+- the curve should pass through the data points in a way that minimizes the bending or deviation from the points
+- based on self-consistency
+- a principal curve for the random variable X is self-consistent that is,
+  - if for all α(s) in the curve, this point is the conditional mean of X given X belongs to the domain of attraction of α(s)
+- the domain of attraction for α(s) in a differentiable curve α is, the orthogonal hyperplane to α at α(s)
+  - α'(s) is the velocity vector of α, which is the component-wsie derivative of α and it is tangent to α at α(s)
+- criterion: minimze SUM(||Xi-α(ti)||)²
+  - Xi is the ith data point
+  - ti is the parameter along the curve corresponding to Xi
+  - α(ti) is the point on the curve at parameter ti
+
+**Banach fixed-point theorem**:
+
+- guarantees the existence and uniqueness of fixed points for certain types of functions
+- used when iteratively adjust curves to achieve self-consistency with the data
+- this theorem is applied to guarantee that the iterative adjustments converge to a unique self-consistent curve
+- contractive mapping: the mapping reduces the distance between points (curves) as they are iteratively adjusted
+- if we look at some element that is fixed and we can proove that the operations we do are a contraction map, we can obtain the fixed set by starting from a random point not far from S
+
+**Steps**:
+
+1. start with some initial curve e.g. straight line like first principal component replacing the set of projected pobserved points ober this line
+2. iteratively adjust curve to make it "self-consisten" by moving the curve to minimize the distnace between the points and the curve
+3. self-consistent criterion involves finding the curve that minimizes the sum of squared distances between data points and curve
+4. introduce a parameterization ti along the curve, turning the problem into a minimization of the sum of squared distances
+5. iterate until convergence
 
 ### local MDS
 
+- differentiates between short and large distances between pairs of objects
+  - short distances are managed as in MDS
+  - large distances are handled with repulsion
+- idea: points that are not neighbors are considered to be very far apart and are given a smaller weight w, so they do not dominate the STRESS function
+- Nk is a symmetric set of nearby pairs of points
+  - specifically a pair (i,j) is in Nk if point i is amongst K-neareast neighbors of j or vice-versa
+- local STRESS = SUM((δij − dij)²) + SUM(w(D∞ − dij)²)
+  - D∞ is a large constant
+  - w is a small weight
+    - indicates the relevant proportion of large distances in stress function (if large they are relevant, if small they are not)
+  - dij = ∥xi − xj∥
+  - D = δij
+  - X = data matrix
+- we minimize the STRESS(D,X)
+- Global structure is lost when large distances are totally excluded from the objective function.
+
+**R**:
+
+- function `lmds` of package `stops`
+- library `localmds` (old)
+
+**Local Continuity Meta-criteria**:
+
+- for choosing the tuning parameter in Local MDS or other dimensionality reduction techniques
+- neighboordhood size K' and for the i-th object O in the data
+- let Nk'(i) be the number of cases that simulatneously are between the K'-neareest neighbors of Oi in the high-dim space (distances here are δij)
+- and between the K'-nearest neighbors of the mapped point xi in the low-dim space (distances here are ∥xi − xj∥)
+- **local continuity**: NK'= 1/n SUM(NK'(i)), as global measure of overlapping K'nearest neighbors in both spaces
+- can be normalized with MK' = 1/K' (NK')
+- or even better adjusted: MK'adj = MK' - (K'/n-1)
+- the measure is maximized
+
 ### ISOMAP
 
+- ISOmetric feature MAPping
+- Input: DX, the matrix of observed euclidean distances
+- Steps:
+  - 1. indentifying neighborhood relation s (ε or k) and defining corresponding graph G
+  - 2. computing shortest paths in G -> DG
+  - 3. doing MDS on DG
+- Output: a low dim configuraiotn
+- depends on the tuning parameter (bandwidth) ε or k
+- the output is very sensible to the bandwidth value: short-circuits, fragmented graph G
+- choosing it with Local Continuity Meta-Criteria is an option
+
 ### t-SNE
+
+- alternative to LocalMDS or ISOMAP
+- SNE requires a distance Matrix D of size n × n, with entries δij ≥ 0 the dissimilarity (distance) between individuals i and j
+- alternatively starting from data matrix X of size nxp(n individuals, p observed attributes, p>>q)
+- SNE starts by converting the high-dim distances between data points into conditional probabilities pj|i that represent similarities
+  - where σi is a data-point dependent bandwidth (to be tuned)
+- pj|i is the conditional probability that xi would pick xj as its neighbor if neighbors were picked in proportion to their probability density under a Gaussian centered at xi
+  - pij = exp(-||yi-yj||²) / SUM(exp(-||yi-yk||²))
+- then for the low-dim counterparty yi and yj of datapoints xi and xj a similar conditional probability qj|i is computed
+  - qij = exp(-||yi-yj||²/(2σ²i)) / SUM(exp(-||yi-yk||²/(2σ²i)))
+  - using guassian distribution
+- if low-dim points yi and yj correctly model the similarity between high-dim data points xi and xj, the conditional probabilites pj|i and qj|i will be equal
+- SNE aims to find a low-dimensional data representation that minimizes the mismatch between pj|i and qj|i
+- SNE minimizes the sum of Kullback-Leibler divergences between the conditional distributions with gradient descent
+  - Kullback-Leibler divergence is not symmetric:
+    - there is a large cost for using widely separated map points yi to represent nearby data points xi
+    - but small cost for using nearby map points to represent widely separated data points
+  - so the SNE cost function focuses on retaining the local structure of the data in the map
+- **Choosing σi**:
+  - with Shannon entropy H(P), where P is the perplexity of a discrete distribution
+  - the perplexity is a uniform distribution with k possible values
+  - Perp(P) is interpreted as the number of possible points in a uniform distribution having the same Shannon entropy as P
+  - when applied to the conditional distribution pi|j -> Perp(P) is interpreted as the effective number of neighbors of xi
+  - H(Pi) and Perp(Pi) are increasing in σi
+  - SNE performs a binary seach for the value of σi that produces a Pi with a fixed perplexity that is specified by the user
+  - SNE is robust to changes in perplexity and typical values are 5 and 50
+  - low value of σi will obtain low values of perplexity = low number of affected neighborhoods in high dimesional space
+  - high value of σi will obtain high values of perplexity = large number of affected neighborhoods in high dimensional space
+- **symmetric SNE**:
+  - the gradient expression for C(Y) used in gradient descent would be nicer if they were symmetric in i and j
+  - then the expression for pij manages the outliers in the high-dim configuraiton much better than a definition similar to qij
+- **Crowding Problem**:
+  - pairwise distances in a 2-dim space cannot faithfully model distances between points on the 10-dim manifold
+  - it is impossible to respect all interdistances between individuals
+  - in 2-dim space the area of the circumference is way smaller as in the higher dim space so data in lower-dim is crowded!
+  - also affects other dimensionality reduction techniques such as non-classical metric MDS; local MDS or ISOMAP
+  - solution t-SNE
+
+**t-SNE**:
+
+- t-Stochastic Neighbor Embedding
+- main change to SNE is the way the joint probabilities qij are defined
+  - qij = (1 + ∥yi − yj∥²)⁽-1⁾ / (SUM ( 1+ ||yh-yk||²))⁽-1⁾
+- it uses a Student t-distribution with 1 degree of freedom (a Cauchy distribution) to transform distances in the low-dim space into probabilities qij instead of gaussian distribution
+- this makes qij almost invariant to changes in the scale of the map for low-dim points that are far apart
+- but allos a moderate distance in the high-dim space to be faithfully modeled by a much larger distance in the map
+- as a result: eliminating the unwanted attractive foreces between low-dim points that represent moderately dissimilar datapoints
+- additionally t-SNE uses the symmetric version of the cost function C(Y)
+
+**R**
+
+- library `tsne`: Function `tsne` fully implemented in R
+- library `Rtsne`: Function `Rtsne` calls an efficient C++ implementation
 
 ---
 

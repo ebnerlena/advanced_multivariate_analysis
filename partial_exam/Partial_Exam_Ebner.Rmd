@@ -101,12 +101,12 @@ abline(v=a_loo,col=2)
 
 ```{r}
 best=a_values[which.max(logLCVa)]
-print(paste("best b (LOOCV)",best))
+print(paste("best a (LOOCV)",best))
 ```
 
 ```{r}
 plot(x,y,col="gray", asp=1)
-plot(X,col=8)
+# plot(X,col=8)
 sm.density(X,h=best*c(1,1),display="slice",col=2,add=TRUE)
 sm.density(X, h=best*c(1,1), display="slice", add=TRUE, col="red", props=95)
 ```
@@ -199,7 +199,7 @@ sm.density(X,h=best*c(1,1),display="slice",props=c(50,75,95),col=2,add=TRUE)
 ```{r}
 plot(GMM, what="classification", asp=1, xlab="scale(LE[,1])",ylab="scale(lgDifLE[,15])")
 points(X)
-text(X[,1], X[,2], rownames(X), pos = 3, cex = .7)
+# text(X[,1], X[,2], rownames(X), pos = 3, cex = .7)
 
 # there are 2 clusters
 ```
@@ -208,7 +208,7 @@ text(X[,1], X[,2], rownames(X), pos = 3, cex = .7)
 #Some countries ate each cluster
 # Blue cluster
 Icl1 <- which(y<=-2)
-cat("\n \n Blue cluster\n")
+cat("\n \n Red cluster\n")
 CtryName[Icl1]
 # Countries with high Life Expectancy at birth, larger than 82 years. So all the yearly increment of LE are small. 
 # For age=15 this increment are lower than 0.4 years for the selected countries.
@@ -217,8 +217,8 @@ CtryName[Icl1]
 ```{r}
 # Red cluster
 Icl2 <- which(x<=-2)
-cat("\n \n Red cluster\n")
-cat("\n \n Red cluster\n")
+cat("\n \n Blue cluster\n")
+CtryName[Icl2]
 # Countries with low Life Expectancy at birth, lower than 57 years. 
 # So the yearly increment of LE are large, in particular for age=15. 
 # this increment are larger than 3.7 years for the selected countries except one (which has 2.2 years).
@@ -233,9 +233,16 @@ epsilon <- 0.25
 minPts <- 4
 
 dbscan_result <- fpc::dbscan(X, eps = epsilon, MinPts = minPts, showplot = 0)
-plot(dbscan_result, x, main = sprintf("DBSCAN eps=%.2f minPts=%d", epsilon, minPts), frame = FALSE, xlab="x",ylab="y")
+plot(dbscan_result, X, main = sprintf("DBSCAN eps=%.2f minPts=%d", epsilon, minPts), frame = FALSE, xlab="x",ylab="y")
+
+#dbscan.X <- dbscan::dbscan(X,eps = epsilon, minPts = minPts)
+#plot(X, col=dbscan.X$cluster+1, pch=dbscan.X$cluster+1, 
+#     main=paste("dbscan::dbscan; epsilon=",epsilon,",minPts=",minPts),
+#     xlab="x",ylab="y",asp=1)
 
 # 4 clusters have been detected by dbcscan
+# There are 4 clusters:
+# length(unique(dbscan.X$cluster[dbscan.X$cluster>0]))
 ```
 
 - How many outliers have been detected by Dbscan?
@@ -243,7 +250,10 @@ plot(dbscan_result, x, main = sprintf("DBSCAN eps=%.2f minPts=%d", epsilon, minP
 ```{r}
 dbscan_result
 
+# table(dbscan.X$cluster)
+
 # 22 outliers have been detected bz dbscan
+sum(dbscan_result$cluster==0)
 ```
 
 - Which is the relationship between the clusters identified by Dbscan and those identified by GMM?
@@ -268,7 +278,7 @@ table(dbscan_result$cluster,GMM$classification)
 
 Consider the data matrix lgDifLE. Do dimensionality reduction of the columns of lgDifLE, from 100 dimensions to \(q=1\), in two different ways:
 
-**4.1** Using ISOMAP. Choose epsilon in seq(7, 12,by=1) as the value maximizing the correlation between the distance matrices in high and low dimensioal spaces.
+**4.1** Using ISOMAP. Choose epsilon in seq(7, 12,by=1) as the value maximizing the correlation between the distance matrices in high and low dimensional spaces.
 
 ```{r}
 Dlg <- dist(lgDifLE)
@@ -330,7 +340,7 @@ legend("bottomright",CtryName[i3],lwd=4,col=1:3,bty="n")
 How do you interpret the dimension obtained with ISOMAP?
 
 ```{r}
-# The one-dimentional scores obtained by isomap sorts the countries from those having lower LE(age) and higher lgDifLE(age), to those having gihger LE(age) and lower lgDifLE(age)
+# The one-dimentional scores obtained by isomap sorts the countries from those having lower LE(age) and higher lgDifLE(age), to those having higher LE(age) and lower lgDifLE(age)
 ```
 
 

@@ -16,11 +16,11 @@ knitr::opts_chunk$set(echo = TRUE)
 # https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.train.gz
 # https://web.stanford.edu/~hastie/ElemStatLearn/datasets/zip.test.gz
 #
-zip.train <- read.table("./03_nonlinear_dimensionality_reduction/zip.train")
+zip.train <- read.table("./zip.train")
 dim(zip.train)
 n<-dim(zip.train)[1]
 
-zip.test <- read.table("./03_nonlinear_dimensionality_reduction/zip.test")
+zip.test <- read.table("./zip.test")
 dim(zip.test)
 ```
 

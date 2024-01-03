@@ -70,7 +70,7 @@ loocv <- function(data,k){
   for(i in 1:dim(data)[1]){
     pred=princurve::principal_curve(data[-i,],df=k)
     pred_proj= princurve::project_to_curve(t(matrix(data[i,])),pred$s[pred$ord,])
-    distance= distance+ pred_proj$dist
+    distance= distance + pred_proj$dist
   }
   return(distance)
 }
@@ -221,15 +221,10 @@ zero <- lmds(as.matrix(x), init=conf, ndim=q, k=k, tau=tau, itmax = 1000)
 ```
 
 ```{r}
-n <- dim(x)[1]
-
-k <- 5
-tau <- .05
-q<-2
-
 # op <- par(mfrow=c(2,1))
 plot(zero$conf,as=1, main=paste0("Local MDS, k=",k,", tau=",tau))
-text(zero$conf[,1],zero$conf[,2],1:n,pos=3, cex=0.7)
+# text(zero$conf[,1],zero$conf[,2],1:n,pos=3, cex=0.7)
+text(zero$conf[,1],zero$conf[,2],rownames(data),pos=3, cex=0.7)
 ```
 
 
@@ -291,7 +286,7 @@ tau <- c(.1,.5,1)
 n <- dim(x)[1]
 q<-2
 D1=x
-Kp=10
+Kp=10 # nearest neighbors how many are considered for each point
 
 LC.lmds <- matrix(0,nrow=length(K),ncol=length(tau))
 lmds <- array(vector("list",1),dim=dim(LC.lmds))
@@ -356,7 +351,7 @@ It is also visible that the zeros with values around the 0 for dimension 2 are d
 
 ```{r}
 pos_names =  c("left_top", "top",   "right_top", "left", "middle", "right",  "left_bot", "bot",  "right_bot")
-sel_points = c("522",      "5026",  "6989",      "7069", "4774",   "364"  ,  "6659",     "1126", "1884")
+sel_points = c("3422",      "5026",  "6989",      "7069", "4774",   "364"  ,  "6659",     "1126", "1884")
 op <- par(mfrow = c(3,3))
 for (i in 1:9){
   plot.zip(main=pos_names[i],data[sel_points[i],],use.first = TRUE)
@@ -377,10 +372,9 @@ isomap_results <- vector("list",length(k_values))
 
 for (i in 1:length(k_values)){
    k <- k_values[i]
-   isomap_results[[i]] <- isomap(D1, ndim=q, 
-                            k=k)
-  dist_k <- dist(isomap_results[[i]]$points[,1:q])
-  LC.ismp[i] <- LCMC(D1, dist_k, k)$M.Kp.adj
+   isomap_results[[i]] <- isomap(D1, ndim=q, k=k)
+   dist_k <- dist(isomap_results[[i]]$points[,1:q])
+   LC.ismp[i] <- LCMC(D1, dist_k, k)$M.Kp.adj
 }
 
 i_max <- which.max(LC.ismp)
