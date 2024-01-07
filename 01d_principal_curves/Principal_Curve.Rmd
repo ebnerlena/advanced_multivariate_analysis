@@ -19,16 +19,16 @@ fit <- principal_curve(x)
 
 plot(fit,xlim=range(x[,1]),ylim=range(x[,2]),asp=1) # plot principal curve
 points(x,col=4)
-#lines(fit)
+lines(fit)
    # points of principal curve
 whiskers(x, fit$s) # visualize projection error of principal curve points and original points
 
 # fit returns an object with
 # s = result points of principal curve are stored in s
 # ord = allows as the lambda points according to their order: plot(fit$lambda[fit$ord]) -> score increases
-# lambda = for each point, its arclemgth from the beginning of the curve = score, lambdas are not sorted accoridng to their place on curve
+# lambda = for each point, its arclength from the beginning of the curve = score, lambdas are not sorted according to their place on curve
 # dist = total sum of squared distances from the points to their projections on curve
-# converged = a boolean wether algorithm converged or not
+# converged = a boolean whether algorithm converged or not
 
 
 # plot(fit$lambda[fit$ord])
@@ -111,7 +111,6 @@ n<-dim(zip.0)[1]
 zip.0.PC <- princomp(zip.0[,-1])
 pairs(zip.0.PC$scores[,1:4], pch=19,cex=.5)
 # we plot the first 4 principal components
-
 ```
 
 ```{r }
@@ -183,8 +182,8 @@ lines(proj.prcv.to.PC[prcv.0$ord,1:2],col=4,lwd=2)
 
 ```{r }
 op <-par(mfrow=c(2,3))
-plot(zip.0.PC$scores[,1:2],col=8)
-lines(proj.prcv.to.PC[prcv.0$ord,1:2],col=2,lwd=2)
+plot(zip.0.PC$scores[,1:2],col=8) # plot first and second principal components
+lines(proj.prcv.to.PC[prcv.0$ord,1:2],col=2,lwd=2) # overlay principal curve
 
 plot(zip.0.PC$scores[,c(1,3)],col=8)
 lines(proj.prcv.to.PC[prcv.0$ord,c(1,3)],col=2,lwd=2)

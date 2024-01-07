@@ -256,6 +256,11 @@ persp3d(x, y, z, aspect=c(1, 1, 0.5), col = "lightblue",
 # something like chisq test for linear models
 
 anova(am1.0,am1.1,test="F")
+# null hypthesis is that the simpler model am1.o is sufficient and the more complex model does not significant improve fit
+# if p-value is less then 0.05 we would reject null hypothesis
+# a small p-value suggest that the more complex model significantly improes the fit
+# df -> differences in number of parameters for both models
+# higher df means a more complex model
 ```
 
 ```{r}

@@ -131,9 +131,11 @@ mesh$np_dens <- sm.density(X,h=h,display="none",eval.grid=FALSE, eval.points=mes
 np_dens_matrix <- matrix(mesh$np_dens, nrow = ln, ncol = ln, byrow = FALSE)
 
 persp(temp_values, casual_values, np_dens_matrix, col = 2, xlab = "temp", ylab = "casual", zlab = "", main = "Non-parametric density estimation", theta = 160, phi = 30, box=TRUE, axes=T, ticktype="detailed", cex=0.1, xlim = range(X[, "temp"]), ylim = range(X[, "casual"]), zlim = c(0,0.005))
+```
+
 ```{r, eval=FALSE, include=FALSE}
-#sm.density(X, h=h, display="persp", col=2, theta = 160, phi = 30, main="bradfsd", cex=0.1, xlim = range(X[, "temp"]), ylim = range(X[, "casual"]), zlim = c(0,0.005), zlab="")
-#title("Non-parametric density estimation")
+sm.density(X, h=h, display="persp", col=2, theta = 160, phi = 30, main="bradfsd", cex=0.1, xlim = range(X[, "temp"]), ylim = range(X[, "casual"]), zlim = c(0,0.005), zlab="")
+title("Non-parametric density estimation")
 ```
 
 ```{r}

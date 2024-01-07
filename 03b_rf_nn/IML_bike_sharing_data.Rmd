@@ -202,12 +202,12 @@ Let us revise the computation of the split-criterion in a regression tree.
 
 ```{r}
 split_criterion <- function(y, split.var=y){
-  y <- y[order(split.var)]
+  y <- y[order(split.var)] # sort values based on split.var
   n <- length(y)
-  uni.spl.var <- sort(unique(split.var))
+  uni.spl.var <- sort(unique(split.var)) # only consider unqiue values
   m <- length(uni.spl.var)
   Q <- numeric(m+1)
-  Q[1] <- Q[m+1] <- (n-1)*var(y)
+  Q[1] <- Q[m+1] <- (n-1)*var(y) # within-group variance using a weighted sum of variance
   #Q[2] <- (n-2)*var(y[2:n])
   for (i in 2:m){
     ni <- sum(split.var<uni.spl.var[i])
@@ -216,7 +216,7 @@ split_criterion <- function(y, split.var=y){
       ifelse(n-ni>1, (n-ni)*var(y[(ni+1):n]),0)
   }
   #Q[m] <- (n-2)*var(y[1:(n-1)])
-  Q <- Q/Q[1]
+  Q <- Q/Q[1] # normalize by total variance Q[1]
   wminQ <- which.min(Q)
   return(list(Q=Q, split.var=split.var, 
               split=mean(uni.spl.var[wminQ+c(-1,0)]),
@@ -375,7 +375,7 @@ library(grid)
 source("relev.ghost.var.R")
 Rel_Gh_Var <- relev.ghost.var(model=gam_bikes, 
                               newdata = day_sel_test[, -1],
-                              y.ts = day_sel_test[, 1],
+                              y.ts = day_sel_test[, 1], # data used to evaluate model performance
                               func.model.ghost.var = lm
 )
 plot.relev.ghost.var(Rel_Gh_Var,n1=500,ncols.plot = 3)

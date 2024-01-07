@@ -97,6 +97,7 @@ lm2 <- lm(y~x.t, weights = w)
 
 lm2$coefficients[1]
 lm1$coefficients[1]+lm1$coefficients[2]*t
+plot(x,y)
 hat.m.t <- lm2$coefficients[1]
 points(t,hat.m.t,col="red",pch=19)
 abline(lm1, col = "red") 

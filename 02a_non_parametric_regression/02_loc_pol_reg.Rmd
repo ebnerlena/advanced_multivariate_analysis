@@ -69,7 +69,7 @@ Local polynomial regression with `locpolreg`.
 * Regression of `lgSpeed` against `Yr`.
 ```{r, fig.asp=.5}
 op <- par(mfrow=c(1,3))
-# h = 7 because putting almost all prbbability between +-15 for each point
+# h = 7 because putting almost all probability between +-15 for each point
 res0 <- locpolreg(x=Yr,y=lgSpeed,h=7,q=0,r=0,main="q=0,h=7")
 res1 <- locpolreg(x=Yr,y=lgSpeed,h=7,q=1,r=0,main="q=1,h=7")
 res2 <- locpolreg(x=Yr,y=lgSpeed,h=7,q=2,r=0,main="q=2,h=7")

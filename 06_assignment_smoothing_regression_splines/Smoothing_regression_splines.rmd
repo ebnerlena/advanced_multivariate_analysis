@@ -75,7 +75,7 @@ a)  Use the function `logistic.IRWLS.splines` to fit the non-parametric binary r
 source("IRWLS_logistic_regression.R")
 bikes$cnt.5000 <- ifelse(bikes$cnt>=5000,1,0)
 
-pred<-seq(0,40,length.out=1000)
+pred<-seq(0,40,length.out=1000) # generating a sequence of 1000 evenly spaced values ranging from 0 to 40
 bikes<-bikes[order(bikes$temp),]
 fit<-logistic.IRWLS.splines(x=bikes$temp, y=bikes$cnt.5000, x.new=pred, df=6, plts=TRUE)
 r<-pred[fit$predicted.values>0.5]
@@ -104,19 +104,36 @@ set.seed(7777777)
 ```
 
 ```{r}
-n=5
-df <- fold(
-  bikes,
-  k = n,
-  num_fold_cols = 1,
-  parallel = FALSE #
-)
+# n=5
+k=5
+# df <- fold(
+#   bikes,
+#   k = n,
+#   num_fold_cols = 1,
+#   parallel = FALSE #
+# )
+
+  # Split the data into k folds
+  #folds <- cut(seq(1, nrow(bikes)), breaks = n, labels = FALSE)
+  # Set a random seed for reproducibility
+  set.seed(123)
+  # Create a vector of indices from 1 to the number of rows in the dataset
+  indices <- seq(1, nrow(data))
+  # Randomly shuffle the indices
+  shuffled_indices <- sample(bikes[,1])
+  # Divide the shuffled indices into k folds
+  folds <- cut(shuffled_indices, breaks = k, labels = FALSE)
 
 
 dff=seq(3,15)
 total=rep(0,length(dff))
 for (j in  dff){
-  for ( i in seq(n)){
+  for ( i in seq(k)){
+    # Create training and validation sets
+      #validation_indices <- which(df$folds == i, arr.ind = TRUE)
+      #validation_set <- data[validation_indices, ]
+      #training_set <- data[-validation_indices, ]
+      
     fit<-logistic.IRWLS.splines(x=bikes$temp[df$.folds!=i], y=bikes$cnt.5000[df$.folds!=i], x.new=bikes$temp[df$.folds==i], df=j, plts=FALSE)
     total[j - 2] <- total[j - 2] + sum(log(fit$predicted.values) * bikes$cnt.5000[df$.folds == i] +
                                       log(1 - fit$predicted.values) * (1 - bikes$cnt.5000[df$.folds == i]))
@@ -125,6 +142,7 @@ total[j-2]<-total[j-2]/n
 }
 dff_best<-dff[which.max(total)]
 ```
+
 
 The best value for **df** was `dff_best`
 

@@ -130,7 +130,7 @@ Plot the simple regression line (use `lm`).
 
 ```{r}
 # lgle <- log(Life.expec)
-lgle <- jitter(log(smpl[,2]))
+lgle <- jitter(log(smpl[,2])) # Adds small random noise to the values 
 ord.lgle <- order(lgle)
 lgle <- lgle[ord.lgle]
 # log(Inf.Mort.rat)

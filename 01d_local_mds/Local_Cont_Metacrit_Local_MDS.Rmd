@@ -103,7 +103,7 @@ Stress.LocalMDS <- function(conf,dist.orig,k=5,tau=1){
   q<-length(conf)/n
   mconf <- matrix(conf,nrow = n, byrow = FALSE) # configuration matrix
   Eucl.dist <- dist(mconf)
-  w <- dissWeights(dist.orig, type = "knn", k = k)
+  w <- dissWeights(dist.orig, type = "knn", k = k) # compute weights for a dissimilarity matrix based on knn
   w.1 <- (w==1)
   card.N.k <- sum(w.1)
   card.N.k.c <- n*(n-1)/2 - card.N.k

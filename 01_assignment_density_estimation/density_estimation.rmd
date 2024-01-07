@@ -3,6 +3,9 @@ title: "Density estimation"
 author: "Group 1: Pariente Antonio, Bosch Guillem, Ebner Lena"
 date: "`r format(Sys.time(), '%d/%m/%Y')`"
 output: html_document
+editor_options: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
@@ -10,49 +13,50 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Histogram
+
 ## 1.
+
 At the slides we have seen the following relationship
 
-\[\hat f_{h,(-i)}(x_i)=\frac{n}{n-1}\left(\hat f_h(x_i)-\frac{K(0)}{nh}\right)\]
+$$\hat f_{h,(-i)}(x_i)=\frac{n}{n-1}\left(\hat f_h(x_i)-\frac{K(0)}{nh}\right)$$
 
-between the leave-one-out kernel density estimator $\hat f_{h,(-i)}(x)$ and the kernel density estimator 
-using all the observations $\hat f_h(x)$, when both are evaluated at $x_i$, one of the observed data.
-Find a similar relationship between the histogram estimator of the density function $\hat f_{\textrm{hist}}(x)$ 
-and its leave-one-out version, $\hat f_{\textrm{hist},(-i)}(x)$, when both are evaluated at $x_i$.
+between the leave-one-out kernel density estimator $\hat f_{h,(-i)}(x)$ and the kernel density estimator using all the observations $\hat f_h(x)$, when both are evaluated at $x_i$, one of the observed data.
+Find a similar relationship between the histogram estimator of the density function $\hat f_{\textrm{hist}}(x)$ and its leave-one-out version, $\hat f_{\textrm{hist},(-i)}(x)$, when both are evaluated at $x_i$.
 
-
-The new equation we have derived is
-\[\hat f_{\textrm{hist,}(-i)}(x_i) = \frac{n}{n-1}\hat f_{\textrm{hist}}(x_i)-\frac{1}{(n-1)b}\]
-
+The new equation we have derived is $$\hat f_{\textrm{hist,}(-i)}(x_i) = \frac{n}{n-1}\hat f_{\textrm{hist}}(x_i)-\frac{1}{(n-1)b}$$
 
 ## 2.
-Read the CD rate data set and call `x` the first column. 
+
+Read the CD rate data set and call `x` the first column.
+
 ```{r CDrate}
 cdrate.df <-read.table("./cdrate.dat")
 head(cdrate.df)
 x <- cdrate.df[,1]
 ```
 
-
 Then define
+
 ```{r}
 A <- min(x)-.05*diff(range(x)) 
 Z <- max(x)+.05*diff(range(x))
 nbr <- 7
 ```
+
 and plot the histogram of x as
+
 ```{r}
 hx <- hist(x,breaks=seq(A,Z,length=nbr+1),freq=F)
 ```
 
 The following sentence converts this histogram into a function that can be evaluated at any point of R, or at a vector of real numbers:
+
 ```{r}
 hx_f <- stepfun(hx$breaks,c(0,hx$density,0))
 ```
 
-
-Use `hx_f` to evaluate the histogram at the vector of observed data x. 
-Then add the points (xi,f^hist(xi)), i=1,…,n, to the histogram you have plotted before.
+Use `hx_f` to evaluate the histogram at the vector of observed data x.
+Then add the points (xi,f\^hist(xi)), i=1,…,n, to the histogram you have plotted before.
 
 ```{r}
 y=hx_f(x)
@@ -62,8 +66,9 @@ points(x,y,col=2)
 
 ## 3.
 
-Use the formula you have found before relating $\hat f_\textrm{hist}(xi)$ and $\hat f_{\textrm{hist,}(-i)}(x_i)$ to compute $\hat f_{\textrm{hist,}(-i)}(x_i)$, $i=1,\dots,n$. 
+Use the formula you have found before relating $\hat f_\textrm{hist}(xi)$ and $\hat f_{\textrm{hist,}(-i)}(x_i)$ to compute $\hat f_{\textrm{hist,}(-i)}(x_i)$, $i=1,\dots,n$.
 Then add the points $(x_i,\hat f_{\textrm{hist},(-i)}(x_i))$, $i=1,\dots,n$, to the previous plot.
+
 ```{r}
 b = hx$breaks[2] - hx$breaks[1]
 n=length(x)
@@ -77,8 +82,8 @@ points(x,hx_loocv,col=3)
 
 ## 4.
 
-Compute the leave-one-out log-likelihood function corresponding to the previous histogram, 
-at which `nbr=7` has been used.
+Compute the leave-one-out log-likelihood function corresponding to the previous histogram, at which `nbr=7` has been used.
+
 ```{r}
 log_likelihood=sum(log(unlist(hx_loocv)))
 log_likelihood
@@ -87,10 +92,11 @@ log_likelihood
 ## 5.
 
 **Choosing `nbr` by leave-one-out Cross Validation (looCV)**.
-Consider now the set `seq(1,15)` as possible values for `nbr`, the number of intervals of the histogram. 
-For each of them compute the leave-one-out log-likelihood function (`looCV_log_lik`) for the corresponding histogram. 
-Then plot the values of `looCV_log_lik` against the values of `nbr` and select the optimal value of `nbr` as that at which `looCV_log_lik` takes its maximum. 
+Consider now the set `seq(1,15)` as possible values for `nbr`, the number of intervals of the histogram.
+For each of them compute the leave-one-out log-likelihood function (`looCV_log_lik`) for the corresponding histogram.
+Then plot the values of `looCV_log_lik` against the values of `nbr` and select the optimal value of `nbr` as that at which `looCV_log_lik` takes its maximum.
 Finally, plot the histogram of x using the optimal value of `nbr`.
+
 ```{r}
 n=length(x)
 hx_loocv=list()
@@ -111,6 +117,7 @@ for (i in seq(1,15)){
 plot(seq(1,15),looCV_log__lik)
 title("Relation between LooCV Log-Likehood and h")
 ```
+
 The best result can be found with `nbr=5`
 
 ```{r}
@@ -118,24 +125,30 @@ best=seq(1,15)[which.max(looCV_log__lik)]
 best
 ```
 
-
 ```{r}
 hist(x,breaks=seq(A,Z,length=best+1), main="Best histogram density estimation (nbr=5)", freq=F)
 ```
 
-## 6. 
+## 6.
 
-**Choosing `b` by looCV**. Let b be the common width of the bins of a histogram. Consider the set
+**Choosing `b` by looCV**.
+Let b be the common width of the bins of a histogram.
+Consider the set
+
 ```{r, echo=TRUE, eval=FALSE}
 b=seq((Z-A)/15,(Z-A)/1,length=30)
 ```
 
-as possible values for `b`. Select the value of `b` maximizing the leave-one-out log-likelihood function, and plot the corresponding histogram.
-_NOTE_: To avoid errors, use the following syntax for computing a histogram with bin width `b`
+as possible values for `b`.
+Select the value of `b` maximizing the leave-one-out log-likelihood function, and plot the corresponding histogram.
+*NOTE*: To avoid errors, use the following syntax for computing a histogram with bin width `b`
+
 ```{r, echo=TRUE, eval=FALSE}
 hx <- hist(x,breaks=seq(A,Z+b,by=b), plot=F)
 ```
+
 and this sentence to plot it:
+
 ```{r, echo=TRUE, eval=FALSE}
 plot(hx,freq = FALSE)
 ```
@@ -159,6 +172,7 @@ for (i in b){
 plot(b,looCV_log__lik)
 title("Relation between LooCV Log-Likehood and b")
 ```
+
 Best estimation can be found at $b=0.272977$
 
 ```{r}
@@ -171,21 +185,19 @@ hist(x,breaks=seq(A,Z+best,by=best), freq=F)
 hist(x,breaks=seq(A,Z+best,by=best), plot=F)
 ```
 
-
 ## 7.
 
-Recycle the functions `graph.mixt` and `sim.mixt` defined at `density_estimation.Rmd` to generate 
-n=100 data from
+Recycle the functions `graph.mixt` and `sim.mixt` defined at `density_estimation.Rmd` to generate n=100 data from
 
-\[f(x)=(3/4)N(x;m=0,s=1)+(1/4)N(x;m=3/2,s=1/3)\]
+$$f(x)=(3/4)N(x;m=0,s=1)+(1/4)N(x;m=3/2,s=1/3)$$
 
-Let `b` be the bin width of a histogram estimator of f(x) using the generated data. 
-Select the value of `b` maximizing the leave-one-out log-likelihood function, and plot the corresponding histogram. 
+Let `b` be the bin width of a histogram estimator of f(x) using the generated data.
+Select the value of `b` maximizing the leave-one-out log-likelihood function, and plot the corresponding histogram.
 Compare with the results obtained using the Scott's formula:
 
-\[
+$$
    b_\textrm{Scott}=3.49\cdot\textrm{SD}(X)n^{-\frac{1}{3}}.
- \]
+ $$
 
 ```{r}
 graph.mixt<-
@@ -231,10 +243,10 @@ sim.mixt <- function(n=1,k=1,
 }
 ```
 
-Generate $n=100$ data from 
-\[
+Generate $n=100$ data from $$
 f(x) = (3/4)N(x; m = 0, s = 1) +(1/4) N(x; m = 3/2, s = 1/3)
-\]
+$$
+
 ```{r}
 set.seed(123)
 n <- 100
@@ -246,6 +258,7 @@ points(x,0*x,pch="|")
 ```
 
 Make the usual estimations together with an additional one using the `scott_b` parameter.
+
 ```{r}
 A <- min(x)-.05*diff(range(x)) 
 Z <- max(x)+.05*diff(range(x))
@@ -281,7 +294,8 @@ best=b[which.max(looCV_log__lik)]
 print(paste("best b (LOOCV)",best," l-likelihood=",max(unlist(looCV_log__lik))))
 print(paste("best scott b",scott_b," l-likelihood=",scott_looCV_log__lik))
 ```
-Best LOOCV b: 0.9665, Log-Likelihood: -149.527  
+
+Best LOOCV b: 0.9665, Log-Likelihood: -149.527\
 Scott's Formula b: 0.8312, Log-Likelihood: -150.358
 
 ```{r}
@@ -294,23 +308,24 @@ hist(x,breaks=seq(A,Z+best,by=scott_b),main="Scott's Approximation",freq=F)
 
 # Kernel density estimation
 
-# 8. 
-Consider the vector `x` of data you have generated before from the mixture of two normals. 
+# 8.
+
+Consider the vector `x` of data you have generated before from the mixture of two normals.
 Use the relationship
 
-\[
+$$
 \hat f_{h,(-i)}(x_i)=\frac{n}{n-1}\left(\hat f_h(x_i)-\frac{K(0)}{nh}\right)`
-\]
-to select the value of `h` maximizing the leave-one-out log-likelihood function, and plot the corresponding kernel density estimator.
-_NOTE_: The following sentences converts the kernel density estimator obtained 
-with the function `density` into a function that can be evaluated at any point of R or at a vector of real numbers:
+$$ to select the value of `h` maximizing the leave-one-out log-likelihood function, and plot the corresponding kernel density estimator.
+*NOTE*: The following sentences converts the kernel density estimator obtained with the function `density` into a function that can be evaluated at any point of R or at a vector of real numbers:
+
 ```{r, echo=TRUE, eval=FALSE}
 kx <- density(x)
 x_f <- approxfun(x=kx$x, y=kx$y, method='linear', rule=2)
 ```
 
-Here the `h` is pulled from a [11,50] interval, and the estimation is the kernel one performed in theory lessons. 
-However, the value seems to improve in a logarithmic way with respect to h. This makes sense due to the kernel choice, since it is the one chosen by R. 
+Here the `h` is pulled from a [11,50] interval, and the estimation is the kernel one performed in theory lessons.
+However, the value seems to improve in a logarithmic way with respect to h.
+This makes sense due to the kernel choice, since it is the one chosen by R.
 We considered that, since the scope of this practice is not to make a good fit (avoiding regression), 50 is a sufficient number.
 
 ```{r}
@@ -328,13 +343,13 @@ for (h in seq(11,50)){
 }
 ```
 
-
 ```{r}
 plot(seq(11,50),looCV_log__lik)
 title("Relation between LooCV Log-Likehood and h")
 ```
 
 The best estimation is $h=50$
+
 ```{r}
 best=seq(11,50)[which.max(looCV_log__lik)]
 best
