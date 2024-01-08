@@ -1,0 +1,507 @@
+---
+title: "Final Exam AMA-DS, January 2024. Practice"
+author: "Lena Ebner"
+output:
+  pdf_document:
+    fig_caption: yes
+    number_sections: yes
+  html_notebook: null
+  html_document:
+    number_sections: yes
+classoption: a4paper
+---
+
+# Algerian forest fires
+The dataset firesAlg_tr (contained in firesAlg.Rdata) includes 183 instances that regroup a data of two
+regions of Algeria, namely the Bejaia region located in the northeast of Algeria and the Sidi Bel-abbes region
+located in the northwest of Algeria. Each instance corresponds to a different day in one of the two regions.
+
+The dataset includes 10 explanatory attributes and 2 output attributes:
+1. temp : temperature noon (temperature max) in Celsius degrees: 22 to 42
+2. RH : Relative Humidity in %: 21 to 89
+3. wind :Wind speed in km/h: 6 to 29
+4. rain: total day in mm: 0 to 16.8 FWI Components
+5. Fine Fuel Moisture Code (FFMC) index from the Fire Weather Index (FWI) system: 28.6 to 96
+6. Duff Moisture Code (DMC) index from the FWI system: 0.7 to 65.9
+7. Drought Code (DC) index from the FWI system: 6.9 to 220.4
+8. Initial Spread Index (ISI) index from the FWI system: 0 to 19
+9. Buildup Index (BUI) index from the FWI system: 1.1 to 68
+10. Fire Weather Index (FWI) Index: 0 to 31.1
+11. fire: (output) 0 for “not Fire”, 1 for “Fire”
+12. region: (output) 0 for Bejaia, 1 for Sidi Bel-abbes
+The dataset firesAlg_test_blinded (also contained in firesAlg.Rdata) has similar structure as
+firesAlg_tr but it does not contain the output variables. There are 61 instances in firesAlg_test_blinded
+
+
+```{r}
+load("firesAlg.Rdata")
+ls()
+
+data <- firesAlg_tr
+head(data)
+```
+
+
+## Second part
+
+### 1. Generalized additive model for a binary variable
+
+#### 1.1
+Use firesAlg_tr to fit a generalized additive model with response the variable region and explanatory
+variables chosen among the first 10 columns of firesAlg_tr.
+• Justify the steps you do in the model choice process.
+• Indicate clearly which is your finally chosen model.
+
+```{r, warning=FALSE, message=FALSE}
+library(mgcv)
+```
+
+```{r}
+plot(data[,1:11])
+```
+
+**Model 1.0**:
+
+First we fit an additive model with all the variables smoothed 
+
+```{r}
+gam1.0 <- gam(region ~ s(temp) +s(RH) + s(wind)+ s(rain) + s(FFMC) + s(DMC) + s(DC) + s(ISI) + s(BUI) + s(FWI), data=data)
+summary(gam1.0)
+```
+Only smoothed variables DMC, DC, RH are considered as significant. Temp, ISI, FWI have a smoothing term edf of one so we will remove the smoothing term of them in the next model.
+
+```{r}
+par(mfrow=c(4,2))
+plot(gam1.0,pages=3, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+```{r}
+vis.gam(gam1.0,view=c("wind","rain"),
+        theta = 40, phi = 35, r = sqrt(4), d = 1,)
+
+vis.gam(gam1.0, view=c("temp","RH"), plot.type = "contour")
+
+vis.gam(gam1.0, view=c("DMC","ISI"), plot.type = "contour")
+
+```
+
+**Model 2**:
+
+```{r}
+gam2.0 <- gam(region ~ temp + s(RH) + s(wind)+ s(rain) + s(FFMC) + s(DMC) + s(DC) + ISI + s(BUI) + FWI, data=data)
+summary(gam2.0)
+```
+```{r}
+plot(gam2.0,pages=4, residuals=TRUE, shade=TRUE, cex=2, lwd=2)
+```
+
+```{r}
+gam.check(gam2.0)
+```
+
+But this does not help us in getting a better variance explained in the model. Sow we trz to add more complexity by adding some tensor products beween interaction variables.
+
+```{r}
+gam3.0 <- gam(region ~ temp + te(wind, rain) + s(RH) + te(FFMC, FWI) + s(DMC) + s(DC) + ISI + s(BUI) + FWI+ te(DC,BUI) + te(DC,ISI), data=data)
+summary(gam3.0)
+```
+
+Annova Test for comparing models:
+
+
+```{r}
+anova(gam1.0, gam2.0, test="F")
+```
+
+```{r}
+anova(gam1.0, gam3.0, test="F")
+```
+
+```{r}
+anova(gam2.0, gam3.0, test="F")
+```
+
+```{r}
+anova(gam1.0, gam3.0, gam3.0, test="F")
+```
+Based on the tests so far the best model is model3.0.
+But still this model is not able to explain more than 57% deviance.
+
+#### 1.2
+
+To evaluate the performance of your chosen model, I will take use the following quantity:
+C = Gtest − max{0, Gtr − Gtest},1
+where Gtr is the proportion of good classified instances in the training sample, and Gtest is the proportion of
+good classified instances in the blinded test sample (I will compute this quantity later, when grading your
+exam).
+The quantity C will be large when both Gtr and Gtest are large and they are similar to each other. In an
+overfitted model Gtr would be much larger that Gtest and then C would not be so large.
+(Info: C is equal to 0.82 for the generalized linear model including all 10 explanatory variables. I’ve been
+able to fit a model for which C = 0.88.)
+Your grade at this item will be ...
+
+## 3
+
+Consider the dataset obtained by joining 6 of the 10 columns that are common in firesAlg_tr and firesAlg_test_blinded:
+```{r}
+cols<- c(1,2,3,7,9,10)
+firesAlg_6 <- rbind(firesAlg_tr[,cols],firesAlg_test_blind[,cols])
+```
+
+Fit a random forest (with library ranger) to explain FWI as a function of the other variables in firesAlg_6. At the same time, compute the
+
+
+```{r, message=FALSE, warning=FALSE}
+library(ranger)
+library(randomForest)
+library(caret)
+library(vip)
+library(DALEX)
+library(lime)
+library(iml)
+library(localModel)
+# library(fastshap) # Attention! It re-define "explain" from DALEX
+if (require(ghostvar)){library(ghostvar)}
+library(mgcv)
+library(gridExtra)
+```
+
+a. Compute the Variable Importance by the reduction of the impurity at the splits defined by each variable. (Hint: Use set.seed(1234) before calling the function ranger). Plot the results and comment on them.
+
+```{r}
+model_rf_imp <- ranger(
+  FWI ~ .,
+  data = firesAlg_6, 
+  importance='impurity' # default = none, no importances will be computed
+)
+print(model_rf_imp)
+```
+
+```{r}
+set.seed(1234)
+
+rf_imp_vip <- vip(model_rf_imp, num_features = 12)
+
+plot(rf_imp_vip)
+         
+```
+By using the impurity measure for for splits, we see that the most relevant variables is clearly BUI, followed by DC. 
+Also weather dependent variables like the RH and, temp and wind seem important for this model.
+
+b. Compute the Variable Importance by out-of-bag random permutations. (Hint: Use set.seed(1234) before calling the function ranger. This way you fit the same random forest as before). Plot the results and comment on them.
+
+
+```{r}
+set.seed(1234)
+
+model_rf_perm <- ranger(
+  FWI ~ .,
+  data = firesAlg_6, 
+  importance='permutation'
+)
+print(model_rf_perm)
+```
+```{r}
+
+rf_perm_vip <- vip(model_rf_perm, num_features = 15)
+
+plot(rf_perm_vip)
+```
+```{r}
+rf_imp_vip <- vip(model_rf_imp, num_features = 12)
+rf_perm_vip <- vip(model_rf_perm, num_features = 12)
+grid.arrange(rf_imp_vip, rf_perm_vip, ncol=2, top="Left: Reduction in impurity at splits. Right: Out-of-bag permutations")
+```
+
+The obtained variable importances from using permuations are very similar to the once from impurity measure.
+What is visible, is that the BUI has a more stronger (3x) impact, compared to the other 4 variables. 
+
+c. Compute the Variable Importance of each variable by Shapley Values. Plot the results and comment on them.
+
+```{r}
+# NO NEED TO DO THIS TECHER SAID
+# rf_imp_vip <- vip(model_rf_imp, num_features = 12)
+# rf_perm_vip <- vip(model_rf_perm, num_features = 12)
+# 
+# rf_shapley <- vip(model_rf_imp, method="shap",
+#                   pred_wrapper=yhat, num_features = 12,
+#                   train = firesAlg_6, # argument 'train' must be provided
+# )
+# 
+# grid.arrange(rf_imp_vip, rf_perm_vip, rf_shapley,
+#              ncol=2, nrow=2,
+#              top="Top left: Impurity. Top right: oob permutations. Bottom left: Shapley values"
+#             )
+```
+
+d. Use the DALEX library to do the Local (or Conditional) Dependence Plot for each explanatory variable.
+
+
+```{r}
+explainer_rf <- explain.default(model = model_rf_imp,  
+                               data = firesAlg_6,
+                               y = firesAlg_6$FWI, 
+                               label = "Random Forest")
+```
+
+```{r}
+CDP_rf <- model_profile(
+  explainer=explainer_rf,
+  variables = NULL,  # All variables are used
+  N = NULL, # All available data are used
+  groups = NULL,
+  k = NULL,
+  center = TRUE,
+  type = "conditional" #  partial, conditional or accumulated
+)
+
+plot(CDP_rf, facet_ncol=2)
+```
+
+
+##  3. Your own Local (or Conditional) Dependence Plot
+
+```{r}
+x = firesAlg_6$BUI
+y= firesAlg_6$FWI
+```
+
+```{r}
+
+model_rf_imp <- ranger(
+  BUI ~ .,
+  data = firesAlg_6, 
+  importance='impurity' # default = none, no importances will be computed
+)
+
+sm.sp.1 <- smooth.spline(x = x, y = x, 
+                         cv = FALSE, all.knots = TRUE)
+sm.sp.1
+plot(x = x, y = y,
+     main=paste("Number of knots =",sm.sp.1$fit$nk,
+                "; Equiv. no. params.=",round(sm.sp.1$df,2)))
+abline(v=sm.sp.1$fit$min+sm.sp.1$fit$knot*sm.sp.1$fit$range, col=8, lty=2)
+lines(sm.sp.1,col=2,lwd=2)
+```
+
+
+```{r}
+explainer_rf <- explain.default(model = model_rf_imp,  
+                               data = firesAlg_6,
+                               y = firesAlg_6$FWI, 
+                               label = "Random Forest")
+
+mp_rf <- model_profile(explainer = explainer_rf,
+  variables = "BUI",
+  N = 100,
+  type = "partial"
+)
+
+plot(mp_rf, geom = "profiles") +
+  ggtitle("Ceteris-paribus and partial-dependence profiles for BUI")
+
+# grey = all individual expectation plots
+# blue = average
+```
+
+## 4. Mixed Gaussian Model
+
+Consider the dataset firesAlg_6. Do a model based clustering of these data assuming a Gaussian Mixture Model, allowing varying volume, shape, and orientation for different components in the mixture. Choose \(k_{BIC}\), the best number of clusters \(k\in\{2,\ldots,6\}\) according to BIC.
+Plot the resulting object from Mclust (do 4 different graphics: BIC, classification, uncertainty and density).
+
+```{r}
+
+library(mclust)
+library(sm)
+library(fpc)
+library(ggplot2)
+library(cluster)
+
+rng=2:6
+
+GMM <- Mclust(as.matrix(firesAlg_6), parameters=TRUE, modelNames = "VVV")
+
+clust.ind <- GMM$classification
+summary(GMM,parameters=TRUE)
+
+```
+
+
+```{r}
+plot(GMM, what="BIC",asp=1)
+```
+
+```{r}
+plot(GMM, what="classification")
+```
+
+```{r}
+plot(GMM, what="density")
+```
+
+```{r}
+plot(GMM, what="uncertainty")
+```
+
+
+
+## 5. DBCAN
+
+Use DBSCAN to find clusters (and outliers) in the data set firesAlg_6, after centering and scaling the variables. Use \(\varepsilon = 1\) and \(\texttt{minPts}=8\).
+How many clusters have you obtained? How many outliers? Do a pairs plot of firesAlg_6 coloring the points according to the results of DBSCAN.
+
+```{r}
+library(fpc)
+
+epsilon <- 1
+minPts <- 8
+
+X <- scale(firesAlg_6)
+
+
+dbscan_result <- fpc::dbscan(X, eps = epsilon, MinPts = minPts, showplot = 0, scale = TRUE)
+
+cluster_indices = dbscan_result$cluster
+plot(firesAlg_6[,1:6], col=cluster_indices+1)
+```
+
+```{r}
+dbscan_result
+
+# 1 cluster has been detected
+#table(dbscan_result$cluster)
+
+# 92 outliers have been detected bz dbscan
+(outliers = sum(dbscan_result$cluster==0))
+```
+
+
+## 6. Nonlinear dimensionality reduction
+
+Use a nonlinear dimensionality reduction method at your choice to obtain a 2-dimensional configuration for the data in firesAlg_6, after centering and scaling the variables.
+
+Specify how you choose the required tuning parameters.
+Provide graphical representation of the output. In particular, show how the 6 original variables are related with the new 2 dimensions.
+Try to give an interpretation to the new 2 dimensions.
+
+Using the local-continuity meta criteria for choosing the optimal tuning parameters.
+```{r}
+LCMC <- function(D1,D2,Kp=10){
+  D1 <- as.matrix(D1)
+  D2 <- as.matrix(D2)
+  n <- dim(D1)[1]
+  N.Kp.i <- numeric(n)
+  for (i in 1:n){
+    N1.i <- sort.int(D1[i,],index.return = TRUE)$ix[1:Kp]
+    N2.i <- sort.int(D2[i,],index.return = TRUE)$ix[1:Kp]
+    N.Kp.i[i] <- length(intersect(N1.i, N2.i))
+  }
+  N.Kp<-mean(N.Kp.i)
+  M.Kp.adj <- N.Kp/Kp - Kp/(n-1)
+  
+  return(list(N.Kp.i=N.Kp.i, M.Kp.adj=M.Kp.adj))
+}
+```
+
+### t-SNE
+Using local contuinity meta criteria to choose best perplexity tuning parameter between 10 and 50.
+```{r}
+library("Rtsne")
+D=dist(as.matrix(X))
+
+set.seed(42)
+theta= 0.0
+perplexity <- seq(10,50,by=10)
+q=2
+
+corr.dists <- array(0,dim=length(perplexity))
+tSNE.perp <- array(vector("list",1),dim=dim(corr.dists))
+
+for (i in 1:length(perplexity)){
+  tSNE.perp[[i]] <- Rtsne(D, dims=q,
+                   perplexity=perplexity[i],
+                   theta=theta, num_threads = 1)
+    D2.perp <- dist(tSNE.perp[[i]]$Y)
+    corr.dists[i] <- cor(D,D2.perp)^2
+    #print(c(i,j,LC[i,j]))
+}
+
+i.max <- which.max(corr.dists)
+perp.max <- perplexity[i.max]
+tSNE.max <- tSNE.perp[[i.max]]
+tSNE.corr.dists.max <- corr.dists[i.max]
+
+plot(perplexity,corr.dists, type="b")
+abline(v=perp.max, col=2)
+```
+
+```{r}
+print(paste0("tSNE: perplexity.max=",perp.max,", corr.dists(perplexity.max)=",corr.dists[i.max]))
+```
+
+```{r}
+plot(tSNE.max$Y, main="t-SNE")
+```
+Interpretation: The points in the new 2-dim configuration bz t-SNE is not very dense and seems well spreaded. Lower values can be found on the left side, while there is a slight positive linear increase to the right side. This linear correlation can be found in some important vriables like BUI, FWI, DC and temp.
+
+```{r}
+aux <- cbind(X, tsneX=tSNE.max$Y[,1], tsneY=tSNE.max$Y[,2])
+pairs(aux)
+```
+
+### ISOMAP
+
+```{r}
+# library(vegan)
+# 
+# x=dist(as.matrix(firesAlg_6))
+# q<-2
+# k <- 5
+# 
+# ismp <- isomap(x,ndim=q, k=k)
+# plot(ismp,n.col=3,main="Output of ISOMAP Algorithm")
+# text(ismp$points[,1],ismp$points[,2],rownames(data),pos=3, cex=.5)
+```
+
+Choosing tuning parameter k with local continuity meta critera between 5-100.
+
+```{r, warning=FALSE}
+library(vegan)
+
+k_values <- c(5, 10, 50, 70, 100)
+q=2
+D1 <- dist(firesAlg_6)
+LC.ismp <- numeric(length(k_values))
+
+isomap_results <- vector("list",length(k_values))
+
+for (i in 1:length(k_values)){
+   k <- k_values[i]
+   isomap_results[[i]] <- isomap(D1, ndim=q, k=k)
+   dist_k <- dist(isomap_results[[i]]$points[,1:q])
+   LC.ismp[i] <- LCMC(D1, dist_k, k)$M.Kp.adj
+}
+
+i_max <- which.max(LC.ismp)
+k_max <- k_values[i_max]
+isomap_max <- isomap_results[i_max]
+
+plot(k_values, LC.ismp, type="b", main=paste0("K=",round(k_max,4)))
+abline(v=k_max,col=2)
+```
+
+```{r}
+best_k_isomap <- isomap(D1, ndim=q,  k=k_max)
+pairs(cbind(X ,isomap=best_k_isomap$points[,1:2]), pch=20, main="Best ISOMAP output for all vars")
+```
+```{r}
+plot(best_k_isomap$points[,1], best_k_isomap$points[,2], pch=20, main="Best ISOMAP output in 2-dim", as=1)
+text(best_k_isomap$points[,1], best_k_isomap$points[,2], rownames(data),pos=3, cex=.5)
+```
+Interpretation: We can find more density in the right of the new obtain 2-dim data configuration by ISOMAP. 
+And a sligth positve linear correlation. This looks similar to the the correlation with the variable RH, temp and wind in the first dimension.
+
+```{r}
+pairs(cbind(tsneX=tSNE.max$Y[,1], tsneY=tSNE.max$Y[,2],isomapX=best_k_isomap$points[,1], isomapY=best_k_isomap$points[,2]), pch=20, main="t-SNE vs ISOMAP")
+```
+
