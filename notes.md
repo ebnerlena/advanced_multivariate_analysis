@@ -380,6 +380,7 @@ start with nyn matrix of distances D=dij or similarities sij
 - Principal curves: Exploit the self-consistency properties
 - Local MDS: reproducing large distances is less important than reproducing the shorter ones
 - ISOMAP: large distances between objects are estimated from the shorter ones, by the shortest path length. Then shorter and estimated-larger distances have the same importance in a final MDS step
+- - tSNE: use Kullberg Leibler divergence with Symetric cost function and a t-distribution on data by using conditional probabilities
 
 - **Dimensionality reduction problem**:
   - Looking for a low dimensional configuration Y, that is a n × q matrix, q < n,
@@ -410,7 +411,7 @@ start with nyn matrix of distances D=dij or similarities sij
 - sampling principal components are uncorrelated linear combinations of the observed variables having the largest possible variability
 - meeting the goal: interpretation or better understanding of data
 - **Steps**:
-  - 1. standarize data
+  - 1. standardize data
   - 2. compute covariance matrix
   - 3. perform eigendecomposition on the covariance matrix to obatin the eigenvectors (principal components) and eigenvalues
   - 4. sort eigenvectors
@@ -478,8 +479,6 @@ Principal components are the eigenvectors of the covariance matrix of the data. 
 - non-metric STRESS = SUM ((f(δij) − dij)²/SUM(δ²ij))
 - we look for the minimum stress value STRESS(D,X,f)
 - output: provides a configuration of points where the order of distances is similar to the original dissimilarities, but not the actual distances
-
-TODO: check code MDS ex Morse code.Rmd. again
 
 ### Principal Curves by HSPC
 
@@ -680,7 +679,7 @@ Local regression techniques are particularly useful when dealing with complex, n
 
 ## Local Polynomial Regression
 
-- the best prediction of the dependent variable Y given that predicting variable X takes the known value x it the conditional expectation of Y given that X = x -> m(x) = E(Y|X=x)
+- the best prediction of the dependent variable Y given that predicting variable X takes the known value x is the conditional expectation of Y given that X = x -> m(x) = E(Y|X=x)
 - simple linear regression: y = β0 + β1x + ε
 - where betas are unknown parameters
 - nonparametric regression model: yi = m(xi) + εi
@@ -696,7 +695,7 @@ Local regression techniques are particularly useful when dealing with complex, n
 - weights are assigned by a kernel function K
 - h as smoothing parameter = bandwidth (controlling size of local neighboorhood and smoothness)
   - if small only the closest observations to t have a relevant weight
-  - ig large allows distant observatoins to be taken into account for estimating m(t)
+  - if large allows distant observatoins to be taken into account for estimating m(t)
 - this solves the weighted least squares problem
   - minimizing the sum of squared differences between observed and predicted values, with weights assigned to each data point based on its proximity to the point of interest
 - a kernel function is used to assign weights to data points
@@ -763,7 +762,7 @@ Local regression techniques are particularly useful when dealing with complex, n
 
 #### Bandwidth Choice
 
-- choice of smoothing parameter h is crucial for appearnce and properties of regression estimator
+- choice of smoothing parameter h is crucial for appearance and properties of regression estimator
 - it controls the bias-variance trade-off
 - **estimation**:
   - small h: high variance (applied to different sample from the same model gives very different results), small bias (average of the estimators obtained for different sample si ~ the true regression function)
@@ -1166,7 +1165,7 @@ Bagging (Bootstrap Aggregating) improve stability and accuracy of trees by creat
 - **Out-of-Bag Variable Importance**:
   - alternative to variable importance measure
   - randomly permuting the values of each predictor in a test sample to measure the decrease in accuracy
-  - when b-th tree is gown the OOB samples are passed down and the prediction accuracy is recorded
+  - when b-th tree is grown the OOB samples are passed down and the prediction accuracy is recorded
   - then the values for the j-th variable are randomly permuted in the OOB samples and accuracy is computed again
   - the decrease of accuracy as a result of this permuting is averaged over all trees and used as measure of variable j in the random forest
   - prediction error: SUM(yi-T(xi))
